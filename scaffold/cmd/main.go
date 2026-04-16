@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"go-framework/scaffold/internal/generator"
+	"github.com/AuroraLZDF/go-framework/scaffold/internal/generator"
 )
 
 func main() {

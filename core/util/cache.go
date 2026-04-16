@@ -11,7 +11,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"go-framework/core/database/db"
+	"github.com/AuroraLZDF/go-framework/core/database/db"
 )
 
 // Cache 缓存接口

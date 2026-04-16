@@ -2,11 +2,11 @@
 
 一个基于 Gin 的高性能、可扩展的 Go Web 开发框架，提供完整的基础设施组件和最佳实践。
 
-[![Release](https://img.shields.io/badge/release-v0.1.0--alpha-blue.svg)](https://github.com/yourorg/framework/releases)
+[![Release](https://img.shields.io/badge/release-v0.1.0--alpha-blue.svg)](https://github.com/AuroraLZDF/go-framework/releases)
 [![Go Version](https://img.shields.io/badge/go-1.23+-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![Go Report Card](https://goreportcard.com/badge/github.com/yourorg/framework)](https://goreportcard.com/report/github.com/yourorg/framework)
+[![Go Report Card](https://goreportcard.com/badge/github.com/AuroraLZDF/go-framework)](https://goreportcard.com/report/github.com/AuroraLZDF/go-framework)
 
 ## 🌟 特性
 
@@ -24,7 +24,7 @@
 
 ```bash
 # 克隆框架仓库
-git clone https://github.com/yourorg/framework.git
+git clone https://github.com/AuroraLZDF/go-framework.git
 cd framework
 
 # 构建脚手架工具

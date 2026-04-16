@@ -14,9 +14,9 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	ctxkey "go-framework/core/context"
-	"go-framework/core/errno"
-	"go-framework/core/response"
+	ctxkey "github.com/AuroraLZDF/go-framework/core/context"
+	"github.com/AuroraLZDF/go-framework/core/errno"
+	"github.com/AuroraLZDF/go-framework/core/response"
 )
 
 var (

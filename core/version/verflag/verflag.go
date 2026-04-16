@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"go-framework/core/version"
+	"github.com/AuroraLZDF/go-framework/core/version"
 )
 
 type versionValue int

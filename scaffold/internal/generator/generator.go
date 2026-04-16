@@ -105,7 +105,7 @@ go 1.23
 
 require (
 	github.com/gin-gonic/gin v1.12.0
-	go-framework v0.1.0
+	github.com/AuroraLZDF/go-framework v0.1.0
 )
 `, projectName)
 
@@ -122,9 +122,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"go-framework/core/config"
-	"go-framework/core/response"
-	"go-framework/core/server"
+	"github.com/AuroraLZDF/go-framework/core/config"
+	"github.com/AuroraLZDF/go-framework/core/response"
+	"github.com/AuroraLZDF/go-framework/core/server"
 )
 
 func main() {

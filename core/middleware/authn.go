@@ -10,10 +10,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	jwtpkg "go-framework/core/auth/jwt"
-	ctxkey "go-framework/core/context"
-	"go-framework/core/errno"
-	"go-framework/core/response"
+	jwtpkg "github.com/AuroraLZDF/go-framework/core/auth/jwt"
+	ctxkey "github.com/AuroraLZDF/go-framework/core/context"
+	"github.com/AuroraLZDF/go-framework/core/errno"
+	"github.com/AuroraLZDF/go-framework/core/response"
 )
 
 // Authn 是认证中间件，用来从 gin.Context 中提取 token 并验证 token 是否合法，

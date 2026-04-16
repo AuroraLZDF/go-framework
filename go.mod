@@ -1,4 +1,4 @@
-module go-framework
+module github.com/AuroraLZDF/go-framework
 
 go 1.25.1
 

@@ -17,10 +17,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"go-framework/core/config"
-	"go-framework/core/database/db"
-	"go-framework/core/log"
-	"go-framework/core/middleware"
+	"github.com/AuroraLZDF/go-framework/core/config"
+	"github.com/AuroraLZDF/go-framework/core/database/db"
+	"github.com/AuroraLZDF/go-framework/core/log"
+	"github.com/AuroraLZDF/go-framework/core/middleware"
 )
 
 // Application 应用框架结构体

@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	ctxkey "go-framework/core/context"
+	ctxkey "github.com/AuroraLZDF/go-framework/core/context"
 )
 
 // Logger 定义了 biddingAI 项目的日志接口. 该接口只包含了支持的日志记录方法.

@@ -6,9 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"go-framework/core/config"
-	"go-framework/core/response"
-	"go-framework/core/server"
+	"github.com/AuroraLZDF/go-framework/core/config"
+	"github.com/AuroraLZDF/go-framework/core/response"
+	"github.com/AuroraLZDF/go-framework/core/server"
 )
 
 func main() {

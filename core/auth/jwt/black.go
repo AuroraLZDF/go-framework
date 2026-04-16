@@ -15,7 +15,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"go-framework/core/util"
+	"github.com/AuroraLZDF/go-framework/core/util"
 )
 
 // Blacklist 黑名单中存储的数据结构

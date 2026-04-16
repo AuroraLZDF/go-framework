@@ -10,7 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"go-framework/core/errno"
+	"github.com/AuroraLZDF/go-framework/core/errno"
 )
 
 // Response 定义了发生错误时的返回消息.
