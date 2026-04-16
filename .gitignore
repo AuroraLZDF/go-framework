@@ -1,0 +1,139 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*_test
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+*.prof
+*.cover
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency directories (if using vendor)
+vendor/
+
+# Build output
+bin/
+build/
+dist/
+_output/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+.classpath
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+logs/
+tmp/
+temp/
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+config.yaml
+!config.example.yaml
+*.secret
+*.credentials
+
+# Certificates and keys
+cert/
+certs/
+*.crt
+*.key
+*.pem
+*.p12
+*.keystore
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage reports
+coverage.txt
+coverage.html
+.coverage
+
+# Debugging
+__debug_bin
+__debug_bin.exe
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Node modules (if using frontend tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+.dockerenv
+.DS_Store
+
+# Kubernetes
+*.kube/config
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+
+# Documentation build output
+docs/_build/
+site/
+
+# Generated files
+*.gen.go
+*_generated.go
+
+# Benchmark results
+*.bench
+
+# Profiling data
+*.pprof
+*.trace
+
+# Mock files (if using mockgen)
+*_mock.go
+
+# Swagger/OpenAPI generated files
+swagger.json
+swagger.yaml
+docs/swagger/
+
+# Release artifacts
+*.tar.gz
+*.zip
+
+# Internal development docs (keep in docs/internal/)
+docs/internal/

@@ -1,0 +1,48 @@
+# Framework 配置示例
+
+# 应用配置
+app:
+  name: my-application
+  version: 1.0.0
+  mode: debug  # debug, release, test
+
+# 服务器配置
+server:
+  http-addr: :8080
+  https-addr: :8443
+  tls-cert: ./cert/server.crt
+  tls-key: ./cert/server.key
+
+# 数据库配置
+database:
+  mysql:
+    host: 127.0.0.1:3306
+    username: root
+    password: your_password
+    database: mydb
+    max-idle-connections: 100
+    max-open-connections: 20
+    max-connection-life-time: 30s
+    log-level: 4  # 1: silent, 2: error, 3: warn, 4: info
+
+# Redis 配置
+redis:
+  addr: 127.0.0.1
+  port: 6379
+  password: ""
+  db: 0
+
+# JWT 配置
+jwt:
+  secret: your-secret-key-change-in-production
+  expire: 24  # 小时
+  token-id: X-User-ID
+  blacklist-path: tmp/blacklist.log
+
+# 日志配置
+log:
+  disable-caller: false
+  disable-stacktrace: false
+  level: info  # debug, info, warn, error
+  format: json  # console, json
+  dir: logs
