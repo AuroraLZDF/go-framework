@@ -105,7 +105,7 @@ go 1.23
 
 require (
 	github.com/gin-gonic/gin v1.12.0
-	github.com/AuroraLZDF/go-framework v0.1.0
+	github.com/AuroraLZDF/go-framework v0.1.0-alpha
 )
 `, projectName)
 
