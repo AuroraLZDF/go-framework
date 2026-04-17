@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.1.1] - 2026-04-16
+
+### Added
+
+#### Documentation
+- **Configuration Usage Guide** - Complete guide for loading and using configurations (CONFIG_USAGE.md)
+- **Custom Config Reading** - Comprehensive guide for reading custom config options (CUSTOM_CONFIG.md)
+- **Quick Reference Cards** - Quick reference for configuration and custom config (CONFIG_QUICK_REFERENCE.md, CUSTOM_CONFIG_QUICK_REF.md)
+- **README Updates** - Added configuration section with examples and documentation links
+
+#### Features
+- **Viper Integration** - Scaffold now includes viper for reading custom configurations
+- **Custom Config Support** - Users can now read any custom config from config.yaml using viper
+
+### Changed
+
+- Updated scaffold to import `github.com/spf13/viper` in generated projects
+- Updated scaffold go.mod to include viper dependency
+- Improved main.go template with custom config reading examples
+- Enhanced README.md with comprehensive configuration documentation
+
+### Fixed
+
+- Fixed module path issues in all source files
+- Fixed scaffold generator to use correct GitHub module path
+
 ## [v0.1.0-alpha] - 2026-04-16
 
 ### Added
