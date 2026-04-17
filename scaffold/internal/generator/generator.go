@@ -105,6 +105,7 @@ go 1.23
 
 require (
 	github.com/gin-gonic/gin v1.12.0
+	github.com/spf13/viper v1.18.2
 	github.com/AuroraLZDF/go-framework v0.1.0-alpha
 )
 `, projectName)
@@ -121,6 +122,7 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 
 	"github.com/AuroraLZDF/go-framework/core/config"
 	"github.com/AuroraLZDF/go-framework/core/response"
@@ -128,11 +130,31 @@ import (
 )
 
 func main() {
-	// 加载配置
-	cfg, err := config.Load("config.yaml")
+	// 1. 加载配置
+	// 方法一：使用默认路径（推荐）
+	// cfg, err := config.Load("")  // 自动查找 ./config.yaml
+	
+	// 方法二：指定配置文件路径
+	cfg, err := config.Load("./config/config.yaml")
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+	
+	// 2. 验证配置
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Invalid config: %v", err)
+	}
+	
+	// 3. 读取自定义配置（如果有的话）
+	// 例如，如果你在 config.yaml 中添加了自定义配置：
+	// custom:
+	//   api-key: your-api-key
+	//   timeout: 30
+	// 
+	// 可以这样读取：
+	// apiKey := viper.GetString("custom.api-key")
+	// timeout := viper.GetInt("custom.timeout")
+	// log.Printf("Custom config - API Key: %s, Timeout: %d", apiKey, timeout)
 
 	// 创建应用
 	app, err := server.NewApplication(cfg)
