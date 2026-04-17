@@ -12,7 +12,7 @@
 
 - ✅ **分层架构** - Controller → Biz → Store 清晰的分层设计
 - ✅ **开箱即用** - 日志、数据库、认证、中间件等核心组件
-- ✅ **灵活配置** - 基于 Viper 的配置管理，支持多环境和环境变量
+- ✅ **灵活配置** - 基于 Viper 的配置管理，支持环境变量和自定义配置
 - ✅ **JWT 认证** - 完整的 Token 签发、验证和黑名单机制
 - ✅ **优雅关闭** - 支持信号处理和超时控制的服务关闭
 - ✅ **统一响应** - 标准化的 JSON 响应格式和错误处理
@@ -41,7 +41,8 @@ go mod tidy
 
 # 配置项目
 cp config.example.yaml config.yaml
-# 编辑 config.yaml
+# 编辑 config.yaml，填入你的配置
+# 提示：可以添加自定义配置项，使用 viper.GetString() 读取
 
 # 运行应用
 go run cmd/app/main.go
@@ -148,8 +149,12 @@ framework/
 
 ### 1. 配置管理 (config)
 
+Framework 提供强大的配置管理能力，支持 YAML 格式、环境变量覆盖和多环境配置。
+
+#### 基础用法
+
 ```go
-import "go-framework/core/config"
+import "github.com/AuroraLZDF/go-framework/core/config"
 
 cfg, err := config.Load("config.yaml")
 if err != nil {
@@ -161,6 +166,27 @@ if err := cfg.Validate(); err != nil {
     panic(err)
 }
 ```
+
+#### 读取自定义配置
+
+如果你在 `config.yaml` 中添加了自定义配置，可以使用 Viper 直接读取：
+
+```go
+import "github.com/spf13/viper"
+
+// config.yaml:
+// custom:
+//   api-key: abc123
+//   timeout: 30
+
+apiKey := viper.GetString("custom.api-key")
+timeout := viper.GetInt("custom.timeout")
+```
+
+**📚 更多详情：**
+- [配置使用指南](docs/CONFIG_USAGE.md) - 完整的配置加载和使用说明
+- [自定义配置读取](docs/CUSTOM_CONFIG.md) - 如何读取自定义配置项
+- [配置快速参考](docs/CONFIG_QUICK_REFERENCE.md) - 常用配置项速查
 
 ### 2. 应用服务器 (server)
 
@@ -342,6 +368,25 @@ go test ./...
 3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
+
+## 📚 文档
+
+### 快速开始
+
+- [快速开始指南](docs/quick-start.md) - 5分钟上手教程
+- [架构设计文档](docs/architecture.md) - 框架架构和最佳实践
+
+### 配置管理
+
+- [配置使用指南](docs/CONFIG_USAGE.md) - 完整的配置加载和使用说明
+- [自定义配置读取](docs/CUSTOM_CONFIG.md) - 如何读取 config.yaml 中的自定义配置项
+- [配置快速参考](docs/CONFIG_QUICK_REFERENCE.md) - 常用配置项速查
+
+### 脚手架工具
+
+- [脚手架使用指南](scaffold/README.md) - 完整的使用说明
+- [脚手架快速开始](scaffold/QUICKSTART.md) - 快速创建新项目
+- [脚手架开发文档](scaffold/DEVELOPMENT.md) - 开发和扩展脚手架
 
 ## 📄 许可证
 
