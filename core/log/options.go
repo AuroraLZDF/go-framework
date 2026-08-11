@@ -9,6 +9,16 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// RotateConfig 日志轮转配置
+type RotateConfig struct {
+	// 按时间轮转：daily(每天), hourly(每小时)
+	Interval string // 默认 daily
+	// 日志文件基础路径，实际文件名为 ${BasePath}.YYYYMMDD.log
+	BasePath string
+	// 是否同时输出到 stdout
+	Stdout bool // 默认 true
+}
+
 // Options 包含与日志相关的配置项.
 type Options struct {
 	// 是否开启 caller，如果开启会在日志中显示调用日志所在的文件和行号
@@ -21,6 +31,8 @@ type Options struct {
 	Format string
 	// 指定日志输出位置
 	OutputPaths []string
+	// 日志轮转配置，如果不为 nil 则启用日志轮转
+	Rotation *RotateConfig
 }
 
 // NewOptions 创建一个带有默认参数的 Options 对象.

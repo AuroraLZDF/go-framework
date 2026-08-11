@@ -7,6 +7,7 @@ package log
 
 import (
 	"context"
+	"os"
 	"sync"
 	"time"
 
@@ -84,6 +85,19 @@ func NewLogger(opts *Options) *zapLogger {
 		enc.AppendFloat64(float64(d) / float64(time.Millisecond))
 	}
 
+	// 如果有轮转配置，使用自定义写入器
+	if opts.Rotation != nil {
+		core := createRotateCore(opts, encoderConfig, zapLevel)
+		z := zap.New(core, zap.AddStacktrace(zapcore.PanicLevel), zap.AddCallerSkip(1))
+		if !opts.DisableCaller {
+			z = z.WithOptions(zap.AddCaller())
+		}
+		logger := &zapLogger{z: z}
+		// 把标准库的 log.Logger 的 info 级别的输出重定向到 zap.Logger
+		zap.RedirectStdLog(z)
+		return logger
+	}
+
 	// 创建构建 zap.Logger 需要的配置
 	cfg := &zap.Config{
 		// 是否在日志中显示调用日志所在的文件和行号，例如：`"caller":"biddingAI/biddingAI.go:75"`
@@ -112,6 +126,34 @@ func NewLogger(opts *Options) *zapLogger {
 	zap.RedirectStdLog(z)
 
 	return logger
+}
+
+// createRotateCore 创建支持日志轮转的 zapcore.Core
+func createRotateCore(opts *Options, encoderConfig zapcore.EncoderConfig, level zapcore.Level) zapcore.Core {
+	// 创建轮转写入器
+	rw := NewRotateWriter(opts.Rotation.BasePath, opts.Rotation.Interval)
+
+	var encoder zapcore.Encoder
+	if opts.Format == "json" {
+		encoder = zapcore.NewJSONEncoder(encoderConfig)
+	} else {
+		encoder = zapcore.NewConsoleEncoder(encoderConfig)
+	}
+
+	// 创建多输出 core
+	cores := []zapcore.Core{
+		zapcore.NewCore(encoder, zapcore.AddSync(rw), level),
+	}
+
+	if opts.Rotation.Stdout {
+		cores = append(cores, zapcore.NewCore(
+			encoder,
+			zapcore.Lock(os.Stdout),
+			level,
+		))
+	}
+
+	return zapcore.NewTee(cores...)
 }
 
 // Sync 调用底层 zap.Logger 的 Sync 方法，将缓存中的日志刷新到磁盘文件中. 主程序需要在退出前调用 Sync.
