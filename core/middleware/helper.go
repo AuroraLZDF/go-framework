@@ -14,35 +14,30 @@ import (
 
 // NoCache 是一个 Gin 中间件，用来禁止客户端缓存 HTTP 请求的返回结果.
 func NoCache(c *gin.Context) {
-	c.Header("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate, value")
+	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	c.Header("Pragma", "no-cache")
 	c.Header("Expires", "Thu, 01 Jan 1970 00:00:00 GMT")
 	c.Header("Last-Modified", time.Now().UTC().Format(http.TimeFormat))
 	c.Next()
 }
 
-// Cors 是一个 Gin 中间件，用来设置 options 请求的返回头，然后退出中间件链，并结束请求(浏览器跨域设置).
+// defaultCORS 是默认的跨域中间件实例
+var defaultCORS = CORS()
+
+// Cors 是 CORS 的兼容入口，等价于 CORS().
 func Cors(c *gin.Context) {
-	c.Header("Access-Control-Allow-Origin", "*")
-	c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-	c.Header("Access-Control-Allow-Headers", "Authorization, Origin, Content-Type, Accept, X-Requested-With")
-	c.Header("Access-Control-Expose-Headers", "Content-Length, Content-Type")
-	c.Header("Access-Control-Allow-Credentials", "true")
-
-	if c.Request.Method == "OPTIONS" {
-		c.AbortWithStatus(200)
-		return
-	}
-
-	c.Next()
+	defaultCORS(c)
 }
 
 // Secure 是一个 Gin 中间件，用来添加一些安全和资源访问相关的 HTTP 头.
 func Secure(c *gin.Context) {
-	c.Header("Access-Control-Allow-Origin", "*")
 	c.Header("X-Frame-Options", "DENY")
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("X-XSS-Protection", "1; mode=block")
+	// 默认只允许同源资源，业务如引入 CDN 等可在更外层覆盖该头
+	c.Header("Content-Security-Policy", "default-src 'self'")
 	if c.Request.TLS != nil {
 		c.Header("Strict-Transport-Security", "max-age=31536000")
 	}
+	c.Next()
 }

@@ -89,6 +89,7 @@ __debug_bin.exe
 *.tmp
 *.temp
 .cache/
+.screenshots/
 
 # Node modules (if using frontend tools)
 node_modules/

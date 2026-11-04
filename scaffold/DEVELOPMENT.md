@@ -1,270 +1,98 @@
-# 脚手架工具开发总结
+# 脚手架开发文档
 
-## ✅ 已完成的功能
+本文档面向维护 `scaffold` 的开发者，说明生成器结构、验证方式与版本管理约定。
 
-### 1. 核心功能
-
-- ✅ 命令行接口（CLI）
-  - `scaffold new <project-name>` - 创建新项目
-  - 帮助信息和使用说明
-  - 错误处理和用户提示
-
-- ✅ 项目生成器
-  - 完整的项目目录结构
-  - go.mod 文件生成
-  - 主程序文件（cmd/app/main.go）
-  - 配置文件示例（config.example.yaml）
-  - .gitignore 文件
-  - README.md 文档
-
-- ✅ 模板系统
-  - 业务逻辑层模板（biz）
-  - 控制器模板（controller）
-  - SQL 脚本模板
-
-### 2. 项目结构
-
-生成的项目遵循最佳实践的分层架构：
-
-```
-project-name/
-├── cmd/app/              # 应用入口
-│   └── main.go          # 主程序
-├── internal/            # 内部包
-│   ├── biz/            # 业务逻辑层
-│   ├── controller/     # HTTP 控制器
-│   ├── store/          # 数据访问层
-│   ├── model/          # 数据模型
-│   └── service/        # 外部服务
-├── configs/             # 配置文件
-├── sql/                 # 数据库脚本
-├── assets/              # 静态资源
-├── logs/                # 日志目录
-├── config.example.yaml  # 配置示例
-├── go.mod              # Go Module
-└── README.md           # 项目文档
-```
-
-### 3. 文档
-
-- ✅ scaffold/README.md - 完整的使用指南
-- ✅ scaffold/QUICKSTART.md - 5分钟快速开始
-- ✅ 更新了主 README.md
-- ✅ 更新了 PROJECT_SUMMARY.md
-- ✅ 更新了 TODO.md
-
-### 4. 工具和脚本
-
-- ✅ Makefile - 简化构建和测试
-- ✅ scripts/verify-scaffold.sh - 自动化验证脚本
-- ✅ 模板文件（templates/）
-
-## 📊 代码统计
-
-| 文件 | 行数 | 说明 |
-|------|------|------|
-| scaffold/cmd/main.go | 53 | 命令行入口 |
-| scaffold/internal/generator/generator.go | 356 | 核心生成器 |
-| scaffold/templates/*.tpl | 115 | 模板文件 |
-| scaffold/README.md | 227 | 使用文档 |
-| scaffold/QUICKSTART.md | 115 | 快速开始 |
-| Makefile | 39 | 构建脚本 |
-| scripts/verify-scaffold.sh | 105 | 验证脚本 |
-| **总计** | **~1010** | |
-
-## 🎯 技术特点
-
-### 1. 简洁的 API
+## 命令
 
 ```bash
-# 一行命令创建项目
-scaffold new my-app
+scaffold new <project-name>   # 生成新项目
+scaffold version              # 打印构建版本信息（由 Makefile 注入）
 ```
 
-### 2. 智能的项目名称处理
+## 代码结构
 
-- 自动验证项目名称
-- 检查目录是否已存在
-- 在生成的文件中正确使用项目名称
+```
+scaffold/
+├── cmd/
+│   └── main.go                     # CLI 入口：参数解析、new/version 命令
+├── internal/
+│   └── generator/
+│       ├── generator.go            # 项目生成逻辑（字符串模板 + 文件写入）
+│       └── generator_test.go       # 生成器单元测试
+├── README.md                       # 使用说明
+├── QUICKSTART.md                   # 5 分钟快速开始
+└── DEVELOPMENT.md                  # 本文件
+```
 
-### 3. 完整的配置
+> 生成器**没有独立的模板文件**：所有生成内容都以内嵌字符串形式写在
+> `generator.go` 中，`scaffold/templates/` 目录已移除。
 
-- 自动生成 go.mod
-- 提供完整的配置示例
-- 包含所有必要的依赖
+## 生成器实现
 
-### 4. 最佳实践
+`generator.NewProject(name)` 的主流程：
 
-- 遵循 Go 项目标准布局
-- 分层架构设计
-- 清晰的代码注释
-- 完善的文档
+1. 校验项目名（非空、不含 `/\:*?"<>|` 等非法字符），目标目录已存在时报错；
+2. 创建目录：`cmd/app`、`internal/{biz,controller,store,model,service}`、
+   `configs`、`sql`、`assets`、`logs`；
+3. 生成 `go.mod`：`go 1.25.1`，依赖 `gin v1.12.0`、`gorm v1.31.1` 与
+   `github.com/AuroraLZDF/go-framework v0.1.3`；
+4. 生成 `cmd/app/main.go`：`config.Load("")` → `cfg.Validate()` →
+   `server.NewApplication(cfg)` → `RegisterRoutes(func(*gin.Engine, *gorm.DB))`，
+   内置 `GET /health`、`GET /` 与 `/api/v1/users` 示例；
+5. 生成 `config.yaml` 与内容相同的 `config.example.yaml`（可直接运行；
+   JWT secret 使用 48 字节示例值，满足 ≥32 字节校验；MySQL/Redis 可留空跳过）；
+6. 生成 `.gitignore` 与项目 `README.md`。
 
-## 🚀 使用方法
+生成的 `go.mod` 使用框架 `v0.1.3`，因此发布前必须先推送同名 tag；本地开发时
+`FRAMEWORK_LOCAL=1` 会向生成项目追加 `replace` 指向当前仓库。
 
-### 方法一：使用 Makefile
+## 修改生成内容
+
+直接编辑 `scaffold/internal/generator/generator.go` 中对应的生成函数：
+
+- `generateGoMod` — 依赖与 Go 版本；
+- `generateMainFile` — 应用入口与示例路由；
+- `generateConfigFile` — `config.yaml` / `config.example.yaml`；
+- `generateGitignore`、`generateReadme` — 辅助文件。
+
+修改后：
 
 ```bash
-# 构建
+go test ./scaffold/...        # 生成器单测
+make test-scaffold            # 临时目录端到端验证（生成→tidy/build/vet→启动→curl）
+```
+
+## 版本管理
+
+版本号通过 Makefile 的 `-ldflags` 注入 `core/version` 的
+`GitVersion/GitCommit/BuildDate/GitTreeState`。发布流程（仅在本地执行）：
+
+```bash
 make build
-
-# 安装到 GOPATH
-make install
-
-# 测试
-make test
-
-# 清理
-make clean
+make test-scaffold
+make release-tag   # 只打印 git tag 指引，不会创建 tag
+git tag -a v0.1.3 -m 'release: v0.1.3'
+git push origin main && git push origin v0.1.3
 ```
 
-### 方法二：直接运行
+## 设计决策
 
-```bash
-# 构建
-go build -o bin/scaffold ./scaffold/cmd/main.go
+- **字符串模板而非 text/template**：生成内容固定、字段少，直接在 Go 字符串中
+  拼接更易阅读和审查；代价是较大的 `generator.go`。
+- **一次生成完整可运行项目**：包含 `config.yaml`、示例路由与 README，
+  用户 `go mod tidy` 后即可启动，无需复制配置文件。
+- **不维护模板目录**：避免「模板存在但未被生成器使用」的不一致问题；
+  需要模板引擎时可后续引入，届时同步更新本文件。
 
-# 运行
-./bin/scaffold new my-app
-```
+## 已知限制
 
-### 方法三：Go 直接运行
+- 仅支持 `new`（非交互式），暂无 `generate api/model/crud` 等子命令；
+- 生成内容与框架 `v0.1.3` API 绑定，升级框架 API 时需同步修改生成器；
+- 发布前必须推送 `v0.1.3` tag，否则新项目 `go mod tidy` 会失败。
 
-```bash
-go run ./scaffold/cmd/main.go new my-app
-```
+## 相关文档
 
-## 📝 扩展建议
-
-### 1. 添加更多模板
-
-可以添加以下模板：
-
-- Docker 配置文件
-- Docker Compose 配置
-- CI/CD 配置文件（GitHub Actions, GitLab CI）
-- Kubernetes 部署文件
-- Nginx 配置
-- 更多业务模块模板
-
-### 2. 交互式模式
-
-添加交互式向导：
-
-```bash
-scaffold new --interactive
-```
-
-询问用户：
-- 是否需要 MySQL？
-- 是否需要 Redis？
-- 是否需要 JWT 认证？
-- 选择日志格式（JSON/Console）
-
-### 3. 插件系统
-
-允许用户自定义模板和生成规则：
-
-```bash
-scaffold new my-app --template custom-template
-```
-
-### 4. 更新功能
-
-支持更新现有项目的框架版本：
-
-```bash
-scaffold update --version v0.2.0
-```
-
-### 5. 代码生成器
-
-添加子命令生成特定类型的代码：
-
-```bash
-# 生成新的 API 端点
-scaffold generate api users
-
-# 生成数据模型
-scaffold generate model User
-
-# 生成 CRUD 操作
-scaffold generate crud Product
-```
-
-## 🧪 测试结果
-
-所有测试已通过：
-
-```bash
-$ ./scripts/verify-scaffold.sh
-================================
-Framework Scaffold 验证测试
-================================
-
-1️⃣  构建脚手架工具...
-✅ 构建成功
-
-2️⃣  创建测试项目...
-✅ 项目创建成功
-
-3️⃣  验证项目结构...
-✅ cmd/app 目录存在
-✅ internal/biz 目录存在
-✅ go.mod 文件存在
-✅ config.example.yaml 文件存在
-✅ README.md 文件存在
-
-4️⃣  验证配置文件内容...
-✅ 项目名称已正确配置
-
-5️⃣  验证主程序文件...
-✅ 主程序包含正确的项目名称
-
-6️⃣  清理测试项目...
-✅ 清理完成
-
-================================
-✅ 所有验证测试通过！
-================================
-```
-
-## 💡 设计决策
-
-### 1. 为什么使用简单的字符串拼接而不是模板引擎？
-
-- 保持简单，减少依赖
-- 易于理解和维护
-- 对于当前需求足够
-
-### 2. 为什么项目结构采用 standard layout？
-
-- Go 社区的标准做法
-- 清晰的责任分离
-- 便于团队协作
-
-### 3. 为什么提供多种使用方式？
-
-- 适应不同的工作流程
-- 降低使用门槛
-- 提高灵活性
-
-## 🔮 未来展望
-
-脚手架工具是 Framework 生态系统的重要组成部分，未来可以：
-
-1. **集成到 IDE** - 提供图形化界面
-2. **云端模板** - 从远程仓库获取模板
-3. **AI 辅助** - 根据需求智能生成代码
-4. **微服务支持** - 一键生成微服务架构
-5. **监控集成** - 自动集成 Prometheus、Grafana 等
-
-## 📚 相关资源
-
-- [Go Project Layout](https://github.com/golang-standards/project-layout)
-- [Cobra CLI Library](https://github.com/spf13/cobra) - 可用于增强 CLI
-- [Go Templates](https://pkg.go.dev/text/template) - Go 标准库模板引擎
-
----
-
-**脚手架工具已完成并经过充分测试，可以投入使用！** 🎉
+- [脚手架使用指南](README.md)
+- [脚手架快速开始](QUICKSTART.md)
+- [Framework 快速开始](../docs/quick-start.md)
+- [CHANGELOG](../CHANGELOG.md)

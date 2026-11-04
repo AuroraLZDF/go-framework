@@ -2,20 +2,30 @@
 
 ## 🚀 三种读取方式
 
-### 方式 1：Viper 直接读取（最简单）⭐
+### 方式 1：独立 Viper 实例读取（最简单）⭐
+
+> `config.Load` 使用独立 Viper 实例，不会写入全局 Viper，必须自己加载同一份文件。
 
 ```go
 import "github.com/spf13/viper"
+
+v := viper.New()
+v.SetConfigFile("config.yaml")
+if err := v.ReadInConfig(); err != nil {
+    panic(err)
+}
 
 // config.yaml:
 // custom:
 //   api-key: abc123
 //   timeout: 30
 
-apiKey := viper.GetString("custom.api-key")
-timeout := viper.GetInt("custom.timeout")
-enableCache := viper.GetBool("custom.features.enable-cache")
+apiKey := v.GetString("custom.api-key")
+timeout := v.GetInt("custom.timeout")
+enableCache := v.GetBool("custom.features.enable-cache")
 ```
+
+> 其余方式的 `viper.Unmarshal` / `viper.GetStringMap` 同样应改为作用于自行创建的实例 `v`。
 
 **常用方法：**
 - `viper.GetString("key")` - 字符串

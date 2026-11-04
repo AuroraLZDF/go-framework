@@ -13,7 +13,7 @@ import (
 
 // ParamToInt64 从 URL 参数中获取 int64 类型的值.
 func ParamToInt64(c *gin.Context, key string) (int64, error) {
-	idStr := c.Request.FormValue(key)
+	idStr := c.Param(key)
 	return strconv.ParseInt(idStr, 10, 64)
 }
 

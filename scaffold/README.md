@@ -20,7 +20,7 @@ cd framework
 make install
 ```
 
-这会将 `scaffold` 安装到你的 `$GOPATH/bin` 目录，确保该目录在你的 PATH 中。
+这会将 `scaffold` 安装到 `GOBIN`（未设置时为 `$GOPATH/bin`），确保该目录在你的 PATH 中。
 
 ### 方法三：直接运行
 
@@ -54,8 +54,9 @@ my-app/
 ├── sql/                 # 数据库脚本
 ├── assets/              # 静态资源
 ├── logs/                # 日志目录
-├── config.example.yaml  # 配置示例
-├── go.mod              # Go Module 文件
+├── config.yaml          # 可直接运行的配置（已生成）
+├── config.example.yaml  # 配置模板
+├── go.mod              # Go Module 文件（依赖 framework v0.1.3）
 └── README.md           # 项目说明
 ```
 
@@ -81,9 +82,10 @@ go mod tidy
 
 ### 4. 配置项目
 
+生成项目时已创建可直接运行的 `config.yaml`，按需修改（例如 JWT secret 至少 32 字节）：
+
 ```bash
-cp config.example.yaml config.yaml
-# 编辑 config.yaml，修改数据库、Redis 等配置
+vim config.yaml
 ```
 
 ### 5. 运行项目
@@ -105,15 +107,11 @@ curl http://localhost:8080/
 curl http://localhost:8080/api/v1/users
 ```
 
-## 🔧 自定义模板
+## 🔧 自定义生成内容
 
-脚手架提供了以下模板文件（位于 `scaffold/templates/`）：
-
-- `internal_biz_user.go.tpl` - 业务逻辑层示例
-- `internal_controller_user.go.tpl` - 控制器示例
-- `sql_users.sql.tpl` - 数据库表结构示例
-
-你可以根据需要修改这些模板，或者添加自己的模板。
+脚手架没有独立的模板文件，所有内容由 `scaffold/internal/generator/generator.go`
+中的字符串模板生成。修改该文件中的生成函数即可定制项目结构、示例代码与配置；
+修改后运行 `make test-scaffold` 做端到端验证。
 
 ## 💡 最佳实践
 
@@ -153,7 +151,7 @@ func NewUserController(userBiz biz.UserBiz) *UserController {
 使用框架的统一响应：
 
 ```go
-import "go-framework/core/response"
+import "github.com/AuroraLZDF/go-framework/core/response"
 
 func (ctrl *UserController) GetUser(c *gin.Context) {
     user, err := ctrl.userBiz.GetUserByID(c.Request.Context(), id)
@@ -173,14 +171,20 @@ func (ctrl *UserController) GetUser(c *gin.Context) {
 # 构建脚手架
 make build
 
-# 安装脚手架
+# 安装脚手架（GOBIN / GOPATH/bin）
 make install
 
 # 清理构建文件
 make clean
 
-# 测试脚手架
+# 运行单元测试
 make test
+
+# 本地模式端到端验证脚手架（FRAMEWORK_LOCAL=1）
+make test-scaffold
+
+# 发布模式验证（要求 v0.1.3 tag 存在）
+make verify-scaffold
 
 # 查看帮助
 make help
@@ -200,16 +204,15 @@ scaffold new my-awesome-project
 
 A: 可以！修改 `scaffold/internal/generator/generator.go` 中的模板内容，或者添加新的生成逻辑。
 
-### Q: 如何添加新的模板文件？
+### Q: 脚手架如何输出版本？
 
-A: 
-1. 在 `scaffold/templates/` 目录下创建模板文件
-2. 在 `generator.go` 中添加相应的生成函数
-3. 在 `NewProject` 函数中调用新的生成函数
+A: `scaffold version`（或 `./bin/scaffold version`）会打印 GitVersion/BuildDate
+等构建信息；Makefile 通过 `-ldflags` 注入这些值。
 
 ### Q: 脚手架支持哪些 Go 版本？
 
-A: 默认使用 Go 1.23+，你可以在生成的 `go.mod` 文件中修改版本要求。
+A: 生成的 `go.mod` 使用 Go 1.25.1，并依赖 `github.com/AuroraLZDF/go-framework v0.1.3`。
+版本 v0.1.3 需要先打 tag 并推送，否则 `go mod tidy` 会提示 unknown revision。
 
 ## 📚 相关文档
 

@@ -25,8 +25,6 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	"log"
-	"runtime/debug"
 	"time"
 )
 
@@ -36,17 +34,12 @@ const (
 
 type Time time.Time
 
-// UnmarshalJSON 格式化自定义时间转换为 time.Time
-func (t *Time) UnmarshalJSON(data []byte) (err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			log.Printf("Time unmarshal panic: %v\n%s", e, debug.Stack())
-		}
-	}()
-
+// UnmarshalJSON 格式化自定义时间转换为 time.Time.
+// 仅接受 DefaultTimeFormat 格式的 JSON 字符串，解析失败直接返回错误，不吞 panic.
+func (t *Time) UnmarshalJSON(data []byte) error {
 	// 检查 JSON 字符串是否以引号开头和结尾
 	if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-		return errors.New("time: invalid json format")
+		return errors.New("time: invalid json format, expected quoted string")
 	}
 
 	// 去掉引号

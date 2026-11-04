@@ -11,7 +11,8 @@ import (
 	"strings"
 )
 
-// GetRealClientIP 获取真实的客户端IP地址
+// GetRealClientIP 获取真实的客户端IP地址.
+// 依次检查常见代理头，跳过无效/内网地址，全部无效时回退到 RemoteAddr.
 func GetRealClientIP(r *http.Request) string {
 	// 优先级从高到低
 	headers := []string{
@@ -22,17 +23,32 @@ func GetRealClientIP(r *http.Request) string {
 	}
 
 	for _, header := range headers {
-		if ip := r.Header.Get(header); ip != "" {
-			return parseIP(ip)
+		if ip := parseIP(r.Header.Get(header)); ip != "" {
+			return ip
 		}
 	}
 
-	// 最后回退到标准方法
-	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-	return ip
+	// 回退到连接的远端地址（在开发环境/未经过代理时通常就是客户端地址）
+	return remoteIP(r.RemoteAddr)
 }
 
-// 处理可能包含多个IP的情况（如X-Forwarded-For: ip1, ip2, ip3）
+// remoteIP 从 RemoteAddr（host:port）中提取 IP，不含端口时原样返回.
+func remoteIP(remoteAddr string) string {
+	remoteAddr = strings.TrimSpace(remoteAddr)
+	if remoteAddr == "" {
+		return ""
+	}
+
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		return remoteAddr
+	}
+
+	return strings.TrimSpace(host)
+}
+
+// parseIP 处理可能包含多个IP的情况（如X-Forwarded-For: ip1, ip2, ip3），
+// 返回第一个公网有效IP；没有则返回 "".
 func parseIP(ipStr string) string {
 	ips := strings.Split(ipStr, ",")
 	for _, ip := range ips {
@@ -41,10 +57,11 @@ func parseIP(ipStr string) string {
 			return ip
 		}
 	}
+
 	return ""
 }
 
-// 验证IP有效性（排除内网IP）
+// isValidIP 验证IP有效性（排除内网IP）
 func isValidIP(ip string) bool {
 	parsed := net.ParseIP(ip)
 	if parsed == nil {

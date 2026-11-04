@@ -6,6 +6,7 @@
 package util
 
 import (
+	"crypto/rand"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -14,40 +15,63 @@ import (
 	"unicode"
 )
 
-// StructToMap converts a struct to a map
+// StructToMap converts a struct (or a non-nil pointer to struct) to a map.
+// nil、非结构体返回 nil；未导出字段会被跳过，避免 reflect.Value.Interface panic.
 func StructToMap(obj interface{}) map[string]string {
+	if obj == nil {
+		return nil
+	}
+
 	objValue := reflect.ValueOf(obj)
+
+	// 支持传入 *struct，同时安全处理 nil 指针/nil interface
+	for objValue.Kind() == reflect.Ptr || objValue.Kind() == reflect.Interface {
+		if objValue.IsNil() {
+			return nil
+		}
+		objValue = objValue.Elem()
+	}
+
 	if objValue.Kind() != reflect.Struct {
 		return nil
 	}
 
-	m := make(map[string]string)
+	m := make(map[string]string, objValue.NumField())
 	objType := objValue.Type()
 
 	for i := 0; i < objValue.NumField(); i++ {
-		fieldName := objType.Field(i).Name
-		// 转换为下划线形式的字段名称
-		snakeFieldName := toSnakeCase(fieldName)
-		fieldValue := fmt.Sprintf("%v", objValue.Field(i).Interface())
-		m[snakeFieldName] = fieldValue
+		field := objType.Field(i)
+		// 未导出字段的 Interface() 会 panic，直接跳过
+		if !field.IsExported() {
+			continue
+		}
+		m[toSnakeCase(field.Name)] = fmt.Sprintf("%v", objValue.Field(i).Interface())
 	}
 
 	return m
 }
 
 // toSnakeCase Converts a string to snake case.
+// 处理连续大写/缩写：UserID -> user_id、HTTPServer -> http_server、ID -> id.
 func toSnakeCase(name string) string {
+	runes := []rune(name)
 	var result []rune
 
-	for i, r := range name {
-		if unicode.IsUpper(r) {
-			if i > 0 {
+	for i, r := range runes {
+		if !unicode.IsUpper(r) {
+			result = append(result, r)
+			continue
+		}
+
+		if i > 0 {
+			prev := runes[i-1]
+			nextIsLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
+			// 小写/数字之后的大写、或缩写末尾（前一字母大写且下一个字母小写）前插入下划线
+			if unicode.IsLower(prev) || unicode.IsDigit(prev) || (unicode.IsUpper(prev) && nextIsLower) {
 				result = append(result, '_')
 			}
-			result = append(result, unicode.ToLower(r))
-		} else {
-			result = append(result, r)
 		}
+		result = append(result, unicode.ToLower(r))
 	}
 
 	return string(result)
@@ -79,11 +103,29 @@ func JoinInt64s(nums []int64) string {
 // GenerateRandomString 生成指定长度的随机字符串
 func GenerateRandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	// 丢弃会造成取模偏差的字节，保证字符分布均匀
+	const maxByte = 256 - 256%len(charset)
 
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[time.Now().UnixNano()%int64(len(charset))]
-		time.Sleep(time.Nanosecond)
+	if length <= 0 {
+		return ""
 	}
-	return string(b)
+
+	out := make([]byte, 0, length)
+	buf := make([]byte, length)
+	for len(out) < length {
+		// crypto/rand.Read 在 Go 1.24+ 保证不会返回错误
+		_, _ = rand.Read(buf)
+		for _, v := range buf {
+			if int(v) >= maxByte {
+				continue
+			}
+
+			out = append(out, charset[int(v)%len(charset)])
+			if len(out) == length {
+				break
+			}
+		}
+	}
+
+	return string(out)
 }

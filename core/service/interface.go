@@ -6,12 +6,13 @@ package service
 
 import "context"
 
-// SMSProvider 短信服务提供商接口
+// SMSProvider 短信服务提供商接口.
+// 远程调用应遵循 ctx 的超时/取消；实现方需在 ctx 结束时尽快返回.
 type SMSProvider interface {
 	// SendCode 发送验证码
-	SendCode(phone string, code string) error
+	SendCode(ctx context.Context, phone string, code string) error
 	// SendMessage 发送普通短信
-	SendMessage(phone string, content string, templateCode string) error
+	SendMessage(ctx context.Context, phone string, content string, templateCode string) error
 }
 
 // FileInfo 文件信息
@@ -23,14 +24,15 @@ type FileInfo struct {
 	URL       string
 }
 
-// StorageProvider 文件存储提供商接口
+// StorageProvider 文件存储提供商接口.
+// 上传/下载/删除均可能访问远端存储，因此统一接收 ctx.
 type StorageProvider interface {
 	// UploadFile 上传文件
-	UploadFile(file []byte, filename string) (*FileInfo, error)
+	UploadFile(ctx context.Context, file []byte, filename string) (*FileInfo, error)
 	// DeleteFile 删除文件
-	DeleteFile(fileID string) error
+	DeleteFile(ctx context.Context, fileID string) error
 	// GetFileURL 获取文件访问URL
-	GetFileURL(fileID string) (string, error)
+	GetFileURL(ctx context.Context, fileID string) (string, error)
 }
 
 // Message LLM 聊天消息

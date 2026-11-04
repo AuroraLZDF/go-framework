@@ -5,13 +5,34 @@
 package generator
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+	"regexp"
 )
 
-// NewProject 创建新项目
+// projectNamePattern 限制项目名：字母开头，仅允许字母、数字、'-'、'_'.
+var projectNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+
+// generateStep 表示项目生成过程中的一个步骤.
+type generateStep struct {
+	name string
+	run  func(projectName string) error
+}
+
+// projectSteps 按顺序执行；任一步失败会回滚整个项目目录.
+var projectSteps = []generateStep{
+	{"project structure", createProjectStructure},
+	{"go.mod", generateGoMod},
+	{"main.go", generateMainFile},
+	{"config", generateConfigFile},
+	{".gitignore", generateGitignore},
+	{"README.md", generateReadme},
+}
+
+// NewProject 创建新项目.
+// 生成过程中任一步失败都会删除已创建的项目目录，避免留下半成品.
 func NewProject(projectName string) error {
 	// 验证项目名称
 	if err := validateProjectName(projectName); err != nil {
@@ -21,53 +42,35 @@ func NewProject(projectName string) error {
 	// 检查目录是否已存在
 	if _, err := os.Stat(projectName); err == nil {
 		return fmt.Errorf("directory '%s' already exists", projectName)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to check directory '%s': %w", projectName, err)
 	}
 
 	fmt.Printf("Creating project: %s\n", projectName)
 
-	// 创建项目目录结构
-	if err := createProjectStructure(projectName); err != nil {
-		return fmt.Errorf("failed to create project structure: %w", err)
-	}
+	for _, step := range projectSteps {
+		if err := step.run(projectName); err != nil {
+			// 失败回滚：清理已经创建的文件/目录
+			if rmErr := os.RemoveAll(projectName); rmErr != nil {
+				return fmt.Errorf("failed to generate %s: %w (rollback failed: %v)", step.name, err, rmErr)
+			}
 
-	// 生成 go.mod
-	if err := generateGoMod(projectName); err != nil {
-		return fmt.Errorf("failed to generate go.mod: %w", err)
-	}
-
-	// 生成主程序文件
-	if err := generateMainFile(projectName); err != nil {
-		return fmt.Errorf("failed to generate main.go: %w", err)
-	}
-
-	// 生成配置文件
-	if err := generateConfigFile(projectName); err != nil {
-		return fmt.Errorf("failed to generate config: %w", err)
-	}
-
-	// 生成 .gitignore
-	if err := generateGitignore(projectName); err != nil {
-		return fmt.Errorf("failed to generate .gitignore: %w", err)
-	}
-
-	// 生成 README
-	if err := generateReadme(projectName); err != nil {
-		return fmt.Errorf("failed to generate README.md: %w", err)
+			return fmt.Errorf("failed to generate %s: %w", step.name, err)
+		}
 	}
 
 	fmt.Println("\nProject structure created successfully!")
 	return nil
 }
 
-// validateProjectName 验证项目名称
+// validateProjectName 验证项目名称：必须以字母开头，仅包含字母、数字、'-'、'_'.
 func validateProjectName(name string) error {
 	if name == "" {
 		return fmt.Errorf("project name cannot be empty")
 	}
 
-	// 检查是否包含非法字符
-	if strings.ContainsAny(name, `/\:*?"<>|`) {
-		return fmt.Errorf("project name contains invalid characters")
+	if !projectNamePattern.MatchString(name) {
+		return fmt.Errorf("invalid project name %q: must start with a letter and contain only letters, digits, '-' and '_'", name)
 	}
 
 	return nil
@@ -98,15 +101,16 @@ func createProjectStructure(projectName string) error {
 }
 
 // generateGoMod 生成 go.mod 文件
+// 版本需与脚手架模板使用的 API 保持一致（RouteRegisterFunc、jwt.blacklist-prefix 等）
 func generateGoMod(projectName string) error {
 	content := fmt.Sprintf(`module %s
 
-go 1.23
+go 1.25.1
 
 require (
 	github.com/gin-gonic/gin v1.12.0
-	github.com/spf13/viper v1.18.2
-	github.com/AuroraLZDF/go-framework v0.1.0-alpha
+	github.com/AuroraLZDF/go-framework v0.1.3
+	gorm.io/gorm v1.31.1
 )
 `, projectName)
 
@@ -122,7 +126,7 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
+	"gorm.io/gorm"
 
 	"github.com/AuroraLZDF/go-framework/core/config"
 	"github.com/AuroraLZDF/go-framework/core/response"
@@ -130,40 +134,26 @@ import (
 )
 
 func main() {
-	// 1. 加载配置
-	// 方法一：使用默认路径（推荐）
-	// cfg, err := config.Load("")  // 自动查找 ./config.yaml
-	
-	// 方法二：指定配置文件路径
-	cfg, err := config.Load("./config/config.yaml")
+	// 1. 加载配置：默认读取当前目录下的 config.yaml，
+	// 也可以通过 FRAMEWORK_* 环境变量覆盖（例如 FRAMEWORK_APP_MODE=release）
+	cfg, err := config.Load("")
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
-	
+
 	// 2. 验证配置
 	if err := cfg.Validate(); err != nil {
 		log.Fatalf("Invalid config: %v", err)
 	}
-	
-	// 3. 读取自定义配置（如果有的话）
-	// 例如，如果你在 config.yaml 中添加了自定义配置：
-	// custom:
-	//   api-key: your-api-key
-	//   timeout: 30
-	// 
-	// 可以这样读取：
-	// apiKey := viper.GetString("custom.api-key")
-	// timeout := viper.GetInt("custom.timeout")
-	// log.Printf("Custom config - API Key: %s, Timeout: %d", apiKey, timeout)
 
-	// 创建应用
+	// 3. 创建应用
 	app, err := server.NewApplication(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create application: %v", err)
 	}
 
 	// 注册路由
-	app.RegisterRoutes(func(engine *gin.Engine, db interface{}) {
+	app.RegisterRoutes(func(engine *gin.Engine, db *gorm.DB) {
 		// 健康检查
 		engine.GET("/health", func(c *gin.Context) {
 			response.Success(c, gin.H{"status": "healthy"}, "ok")
@@ -202,6 +192,8 @@ func main() {
 // generateConfigFile 生成配置文件
 func generateConfigFile(projectName string) error {
 	content := `# Application Configuration
+# 所有配置项均可用 FRAMEWORK_ 前缀的环境变量覆盖，
+# 例如 FRAMEWORK_APP_MODE=release、FRAMEWORK_LOG_LEVEL=debug
 
 app:
   name: ` + projectName + `
@@ -210,32 +202,48 @@ app:
 
 server:
   http-addr: :8080
-  https-addr: :8443
-  tls-cert: ./cert/server.crt
-  tls-key: ./cert/server.key
+  # 优雅关闭最长等待时间
+  shutdown-timeout: 10s
+  # HTTP 服务端超时（默认 10s / 30s / 60s / 120s）
+  read-header-timeout: 10s
+  read-timeout: 30s
+  write-timeout: 60s
+  idle-timeout: 120s
+  # 启用 HTTPS 时必须同时提供证书和私钥，否则启动会失败
+  # https-addr: :8443
+  # tls-cert: ./cert/server.crt
+  # tls-key: ./cert/server.key
 
 database:
   mysql:
-    host: 127.0.0.1:3306
+    # 留空表示不连接 MySQL，按需填写
+    host: ""
     username: root
     password: your_password
     database: ` + projectName + `_db
-    max-idle-connections: 100
-    max-open-connections: 20
+    max-idle-connections: 10
+    max-open-connections: 100
     max-connection-life-time: 30s
     log-level: 4  # 1: silent, 2: error, 3: warn, 4: info
 
 redis:
-  addr: 127.0.0.1
+  # 留空表示不使用 Redis，按需填写
+  addr: ""
   port: 6379
   password: ""
   db: 0
+  # 连接池与超时，不填使用默认值 10 / 5s / 3s / 3s
+  pool-size: 10
+  dial-timeout: 5s
+  read-timeout: 3s
+  write-timeout: 3s
 
 jwt:
+  # 生产环境请替换为随机密钥（至少 32 字节，config.Validate 会校验）
   secret: change-this-to-a-random-secret-key-in-production
   expire: 24  # hours
   token-id: X-User-ID
-  blacklist-path: tmp/blacklist.log
+  blacklist-prefix: "jwt:blacklist:"
 
 log:
   disable-caller: false
@@ -245,7 +253,12 @@ log:
   dir: logs
 `
 
-	return writeFile(filepath.Join(projectName, "config.example.yaml"), content)
+	// config.example.yaml 作为模板保留，config.yaml 直接可用
+	if err := writeFile(filepath.Join(projectName, "config.example.yaml"), content); err != nil {
+		return err
+	}
+
+	return writeFile(filepath.Join(projectName, "config.yaml"), content)
 }
 
 // generateGitignore 生成 .gitignore 文件
@@ -310,7 +323,7 @@ A web application built with Go Framework.
 
 ### Prerequisites
 
-- Go 1.23+
+- Go 1.25.1+
 - MySQL 5.7+ (optional)
 - Redis 6.0+ (optional)
 
@@ -322,11 +335,8 @@ A web application built with Go Framework.
    go mod tidy
    ` + "```" + `
 
-3. Copy and configure:
-   ` + "```bash" + `
-   cp config.example.yaml config.yaml
-   # Edit config.yaml with your settings
-   ` + "```" + `
+3. 按需修改 ` + "`config.yaml`" + `（已自动生成，可直接启动；
+   MySQL / Redis 留空即可不连接）
 
 4. Run the application:
    ` + "```bash" + `

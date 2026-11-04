@@ -81,6 +81,12 @@ server:
   https-addr: :8443
   tls-cert: ./cert/server.crt
   tls-key: ./cert/server.key
+  shutdown-timeout: 10s          # 优雅关闭最长等待
+  read-header-timeout: 10s
+  read-timeout: 30s
+  write-timeout: 60s
+  idle-timeout: 120s
+  max-header-bytes: 1048576      # 1MB
 
 # 数据库配置
 database:
@@ -89,8 +95,8 @@ database:
     username: root
     password: your_password
     database: myapp_db
-    max-idle-connections: 100
-    max-open-connections: 20
+    max-idle-connections: 10
+    max-open-connections: 100
     max-connection-life-time: 30s
     log-level: 4  # 1: silent, 2: error, 3: warn, 4: info
 
@@ -100,13 +106,19 @@ redis:
   port: 6379
   password: ""
   db: 0
+  pool-size: 10
+  dial-timeout: 5s
+  read-timeout: 3s
+  write-timeout: 3s
 
 # JWT 配置
 jwt:
-  secret: change-this-to-a-random-secret-key
+  # 至少 32 字节，config.Validate() 会强制校验
+  secret: change-me-please-use-a-random-32byte-secret
   expire: 24  # hours
   token-id: X-User-ID
-  blacklist-path: tmp/blacklist.log
+  blacklist-prefix: "jwt:blacklist:"
+  blacklist-fail-closed: false  # Redis 不可用时是否拒绝请求
 
 # 日志配置
 log:
@@ -146,6 +158,14 @@ httpsAddr := cfg.Server.HTTPSAddr  // ":8443"
 // TLS 证书
 tlsCert := cfg.Server.TLSCert
 tlsKey := cfg.Server.TLSKey
+
+// 超时与请求头限制
+shutdownTimeout := cfg.Server.ShutdownTimeout
+readHeaderTimeout := cfg.Server.ReadHeaderTimeout
+readTimeout := cfg.Server.ReadTimeout
+writeTimeout := cfg.Server.WriteTimeout
+idleTimeout := cfg.Server.IdleTimeout
+maxHeaderBytes := cfg.Server.MaxHeaderBytes
 ```
 
 ### 访问数据库配置
@@ -167,6 +187,10 @@ redisAddr := cfg.Redis.Addr
 redisPort := cfg.Redis.Port
 redisPass := cfg.Redis.Password
 redisDB := cfg.Redis.DB
+redisPoolSize := cfg.Redis.PoolSize
+redisDialTimeout := cfg.Redis.DialTimeout
+redisReadTimeout := cfg.Redis.ReadTimeout
+redisWriteTimeout := cfg.Redis.WriteTimeout
 ```
 
 ### 访问 JWT 配置
@@ -175,7 +199,8 @@ redisDB := cfg.Redis.DB
 jwtSecret := cfg.JWT.Secret
 jwtExpire := cfg.JWT.Expire  // 小时
 tokenId := cfg.JWT.TokenID
-blacklistPath := cfg.JWT.BlacklistPath
+blacklistPrefix := cfg.JWT.BlacklistPrefix
+blacklistFailClosed := cfg.JWT.BlacklistFailClosed
 ```
 
 ### 访问日志配置
@@ -186,6 +211,8 @@ logFormat := cfg.Log.Format  // console, json
 logDir := cfg.Log.Dir
 disableCaller := cfg.Log.DisableCaller
 disableStacktrace := cfg.Log.DisableStacktrace
+outputPaths := cfg.Log.OutputPaths
+rotation := cfg.Log.Rotation
 ```
 
 ---
@@ -201,11 +228,14 @@ Framework 支持通过环境变量覆盖配置文件中的值：
 export FRAMEWORK_APP_NAME=my-app
 export FRAMEWORK_SERVER_HTTP_ADDR=:3000
 export FRAMEWORK_DATABASE_MYSQL_HOST=192.168.1.100:3306
-export FRAMEWORK_JWT_SECRET=my-secret-key
+export FRAMEWORK_JWT_SECRET=change-me-please-use-a-random-32byte-secret
 
 # 运行应用
 ./my-app
 ```
+
+> 所有内置配置键都支持环境变量覆盖；当 `config.Load("")` 找不到配置文件时，
+> 应用会使用环境变量 + 默认值启动（JWT secret 仍必须 ≥32 字节）。
 
 **环境变量命名规则：**
 - 使用 `_` 代替 `.` 和 `-`
@@ -294,11 +324,13 @@ log.Println("Configuration is valid")
 ```
 
 **内置验证规则：**
-- ✅ MySQL host 不能为空
-- ✅ MySQL username 不能为空
-- ✅ MySQL database 不能为空
-- ✅ JWT secret 不能为空
-- ✅ Server HTTPAddr 如果为空，默认为 `:8080`
+- ✅ `app.mode` 必须是 debug/release/test 之一
+- ✅ `log.format` 必须是 console/json 之一
+- ✅ JWT secret 必填且至少 32 字节
+- ✅ 配置了 `database.mysql.host` 时，username/database 不能为空
+- ✅ 配置了 `server.https-addr` 时，必须同时提供 tls-cert 与 tls-key
+- ✅ HTTP 超时与 max-header-bytes 必须为正数
+- ✅ Server HTTPAddr 默认 `:8080`（由 applyDefaults 填充）
 
 ---
 
@@ -346,6 +378,7 @@ import (
     "log"
     
     "github.com/gin-gonic/gin"
+    "gorm.io/gorm"
     
     "github.com/AuroraLZDF/go-framework/core/config"
     "github.com/AuroraLZDF/go-framework/core/response"
@@ -354,7 +387,7 @@ import (
 
 func main() {
     // 1. 加载配置
-    cfg, err := config.Load("./config/config.yaml")
+    cfg, err := config.Load("./config.yaml")
     if err != nil {
         log.Fatalf("Failed to load config: %v", err)
     }
@@ -380,7 +413,7 @@ func main() {
     }
     
     // 5. 注册路由
-    app.RegisterRoutes(func(engine *gin.Engine, db interface{}) {
+    app.RegisterRoutes(func(engine *gin.Engine, db *gorm.DB) {
         // 健康检查
         engine.GET("/health", func(c *gin.Context) {
             response.Success(c, gin.H{

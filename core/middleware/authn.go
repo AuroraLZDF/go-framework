@@ -6,6 +6,7 @@
 package middleware
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -23,15 +24,34 @@ func Authn() gin.HandlerFunc {
 		// 解析 JWT Token
 		userId, err := jwtpkg.ParseRequest(c.Request)
 		if err != nil {
+			// 区分过期、缺失、被吊销等错误，便于客户端决定是否刷新 token
+			response.Error(c, authnErrno(err))
+			c.Abort()
+
+			return
+		}
+
+		userID, err := strconv.ParseInt(userId, 10, 64)
+		if err != nil {
 			response.Error(c, errno.ErrTokenInvalid)
 			c.Abort()
 
 			return
 		}
 
-		userID, _ := strconv.ParseInt(userId, 10, 64)
 		// 设置全局变量
 		c.Set(ctxkey.XUsernameKey, userID)
 		c.Next()
 	}
+}
+
+// authnErrno 把 ParseRequest 返回的错误映射为可直接输出的 *errno.Errno.
+// 未携带 errno 信息的错误（例如 JWT 未初始化）按非法 token 处理，避免泄漏内部细节.
+func authnErrno(err error) *errno.Errno {
+	var e *errno.Errno
+	if errors.As(err, &e) {
+		return e
+	}
+
+	return errno.ErrTokenInvalid
 }

@@ -12,6 +12,7 @@ server:
   https-addr: :8443
   tls-cert: ./cert/server.crt
   tls-key: ./cert/server.key
+  shutdown-timeout: 10s
 
 # 数据库配置
 database:
@@ -20,8 +21,8 @@ database:
     username: root
     password: your_password
     database: mydb
-    max-idle-connections: 100
-    max-open-connections: 20
+    max-idle-connections: 10
+    max-open-connections: 100
     max-connection-life-time: 30s
     log-level: 4  # 1: silent, 2: error, 3: warn, 4: info
 
@@ -37,7 +38,8 @@ jwt:
   secret: your-secret-key-change-in-production
   expire: 24  # 小时
   token-id: X-User-ID
-  blacklist-path: tmp/blacklist.log
+  blacklist-prefix: "jwt:blacklist:"
+  blacklist-fail-closed: false  # Redis 不可用时是否拒绝请求
 
 # 日志配置
 log:

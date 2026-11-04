@@ -6,186 +6,173 @@
 package token
 
 import (
-	"bytes"
-	"encoding/json"
-	"io/fs"
+	"context"
+	"errors"
 	"net/http"
-	"os"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 
+	"github.com/AuroraLZDF/go-framework/core/errno"
 	"github.com/AuroraLZDF/go-framework/core/util"
 )
 
-// Blacklist 黑名单中存储的数据结构
-type Blacklist struct {
-	ID        string `json:"id"`
-	ExpiredAt int64  `json:"expired_at"`
+const (
+	// defaultBlacklistPrefix 黑名单在 Redis 中的默认 key 前缀
+	defaultBlacklistPrefix = "jwt:blacklist:"
+	// jtiClaim 是 JWT 标准中用于标识单个令牌的 claim
+	jtiClaim = "jti"
+	// userRevokeKeyInfix 用于区分用户级吊销 key 与会话级 jti key
+	userRevokeKeyInfix = "user:"
+)
+
+// blacklistKey 生成会话级黑名单在 Redis 中的 key
+func blacklistKey(jti string) string {
+	return blacklistPrefix() + jti
 }
 
-// IsBlacklisted 检查 Token 是否在黑名单中
-func IsBlacklisted(token *jwt.Token) bool {
-	// 获取 Token 的 ID
-	tokenID := token.Claims.(jwt.MapClaims)[config.TokenId].(string)
-	expire, _ := token.Claims.GetExpirationTime()
+// userRevokeKey 生成用户级吊销在 Redis 中的 key
+func userRevokeKey(userID string) string {
+	return blacklistPrefix() + userRevokeKeyInfix + userID
+}
 
-	// 读取黑名单文件中的内容
-	blacklist, err := readBlacklistFromFile()
-	if err != nil {
+// blacklistPrefix 返回当前配置的黑名单 key 前缀.
+func blacklistPrefix() string {
+	cfg := currentOptions()
+	if cfg == nil || cfg.BlacklistPrefix == "" {
+		return defaultBlacklistPrefix
+	}
+
+	return cfg.BlacklistPrefix
+}
+
+// blacklistFailClosed 返回黑名单查询失败时是否应拒绝请求.
+// 默认 false（fail-open）：Redis 不可用时放行，保证鉴权可用性；
+// 可通过 Options.BlacklistFailClosed=true 切换为 fail-closed.
+func blacklistFailClosed() bool {
+	cfg := currentOptions()
+	if cfg == nil {
 		return false
 	}
 
-	// 遍历黑名单列表，检查 Token 是否在其中
-	for _, blToken := range blacklist {
-		if blToken.ID == tokenID {
-			// token 过期时间 小于等于黑名单中时间
-			if expire.Unix() <= blToken.ExpiredAt {
-				return true
-			}
-		}
-	}
-
-	return false
+	return cfg.BlacklistFailClosed
 }
 
-// AddToBlacklist 添加 Token 到黑名单中
+// jtiFromClaims 从 Token 的 claims 中安全提取 jti.
+func jtiFromClaims(token *jwt.Token) (string, bool) {
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", false
+	}
+
+	jti, ok := claims[jtiClaim].(string)
+
+	return jti, ok && jti != ""
+}
+
+// IsBlacklisted 检查 Token 是否已被吊销.
+// 第一个返回值表示是否命中黑名单；第二个返回值表示吊销状态查询是否失败
+// （例如 Redis 不可用），调用方可据此记录告警.
+//
+// 注意：即使会话级（jti）查询失败，仍会继续检查用户级吊销时间点，
+// 避免 Redis 抖动时 fail-open 分支完全跳过用户级吊销检查。
+func IsBlacklisted(token *jwt.Token) (bool, error) {
+	jti, ok := jtiFromClaims(token)
+	if !ok {
+		// 无法解析出 jti 视为不可信，按黑名单处理
+		return true, nil
+	}
+
+	cache := util.NewCache()
+	ctx := context.Background()
+	failClosed := blacklistFailClosed()
+
+	// 1. 会话级吊销：jti 是否在黑名单中
+	sessionHit, sessionErr := cache.Exists(ctx, blacklistKey(jti))
+	if sessionErr == nil && sessionHit {
+		return true, nil
+	}
+
+	// 2. 用户级吊销：该用户在吊销时间点之前签发的 token 均已失效
+	userID, ok := subjectFromClaims(token)
+	if !ok {
+		return true, nil
+	}
+
+	revokedAt, getErr := cache.Get(ctx, userRevokeKey(userID))
+	if getErr != nil {
+		if errors.Is(getErr, redis.Nil) {
+			// 用户级吊销记录不存在；若会话级查询失败，按配置决定放行还是拒绝
+			if sessionErr != nil {
+				return failClosed, sessionErr
+			}
+
+			return false, nil
+		}
+
+		return failClosed, getErr
+	}
+
+	revokedAtUnix, err := strconv.ParseInt(revokedAt, 10, 64)
+	if err != nil {
+		// 吊销时间格式异常时按已吊销处理，避免绕过
+		return true, nil
+	}
+
+	issuedAt, err := token.Claims.GetIssuedAt()
+	if err != nil || issuedAt == nil {
+		return true, nil
+	}
+
+	if issuedAt.Unix() <= revokedAtUnix {
+		return true, nil
+	}
+
+	// 用户级检查通过，但如果会话级查询失败过：fail-closed 时拒绝，fail-open 时放行并返回错误
+	if sessionErr != nil {
+		return failClosed, sessionErr
+	}
+
+	return false, nil
+}
+
+// AddToBlacklist 将会话级令牌（jti）加入黑名单，过期时间与 Token 一致
 func AddToBlacklist(r *http.Request) error {
 	token, err := ParseToken(r)
 	if err != nil {
 		return err
 	}
 
-	// 获取 Token 的 ID
-	tokenID := token.Claims.(jwt.MapClaims)[config.TokenId].(string)
+	jti, ok := jtiFromClaims(token)
+	if !ok {
+		return errno.ErrTokenInvalid
+	}
+
 	// 获取 Token 的过期时间
-	expirationTime := int64(token.Claims.(jwt.MapClaims)["exp"].(float64))
-
-	// 创建 Blacklist 结构体实例
-	_blacklist := Blacklist{ID: tokenID, ExpiredAt: expirationTime}
-
-	// 读取黑名单文件中的内容
-	blacklist, err := readBlacklistFromFile()
-	if err != nil {
-		return err
+	expire, err := token.Claims.GetExpirationTime()
+	if err != nil || expire == nil {
+		return errno.ErrTokenInvalid
 	}
 
-	// 将 Token 添加到黑名单列表
-	blacklist = append(blacklist, _blacklist)
-
-	// 将黑名单转换为 JSON 格式
-	data, err := json.MarshalIndent(blacklist, "", "  ")
-	if err != nil {
-		return err
+	// Token 已过期，无需写入黑名单
+	ttl := time.Until(expire.Time)
+	if ttl <= 0 {
+		return nil
 	}
 
-	// 将输入JSON字符串压缩为一个单行的JSON字符串，并写入到输出缓冲区中
-	var out bytes.Buffer
-	err = json.Compact(&out, data)
-	if err != nil {
-		return err
-	}
-
-	// 将黑名单信息写入文件
-	err = writeBlacklistToFile(out.Bytes())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return util.NewCache().Set(context.Background(), blacklistKey(jti), "1", ttl)
 }
 
-// FailureAllClient 失效所有客户端的 token
+// FailureAllClient 失效指定用户的所有 Token.
+// 通过记录吊销时间点实现：该用户在吊销时间点之前签发的 token 都会被视为失效，
+// 因此不受 config.Expire 后续调整的影响.
 func FailureAllClient(tokenId string) error {
-	// 获取黑名单列表
-	var path = config.BlackPath
-	if err := util.AddFileIfNotExists(path); err != nil {
-		return err
-	}
-
-	// 读取文件内容
-	blacklistBytes, err := os.ReadFile(config.BlackPath)
-	if err != nil {
-		return err
-	}
-
-	// 将黑名单数据解析为切片
-	var blacklist []Blacklist
-	if len(blacklistBytes) > 0 {
-		if err = json.Unmarshal(blacklistBytes, &blacklist); err != nil {
-			return err
-		}
-	}
-
-	// 将该用户之前的所有 token 从黑名单中移除
-	for i := 0; i < len(blacklist); i++ {
-		if blacklist[i].ID == tokenId {
-			blacklist = append(blacklist[:i], blacklist[i+1:]...)
-			i--
-		}
-	}
-
-	// 将新的 token 加入黑名单
-	blacklist = append(blacklist, Blacklist{
-		ID:        tokenId,
-		ExpiredAt: time.Now().Add(time.Duration(config.Expire) * time.Hour).Unix(),
-	})
-
-	// 将黑名单数据写入文件
-	blacklistBytes, err = json.MarshalIndent(blacklist, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	// 将输入JSON字符串压缩为一个单行的JSON字符串，并写入到输出缓冲区中
-	var out bytes.Buffer
-	err = json.Compact(&out, blacklistBytes)
-	if err != nil {
-		return err
-	}
-
-	// 将黑名单信息写入文件
-	err = writeBlacklistToFile(out.Bytes())
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// readBlacklistFromFile 从文件中读取黑名单信息
-func readBlacklistFromFile() ([]Blacklist, error) {
-	var path = config.BlackPath
-	if err := util.AddFileIfNotExists(path); err != nil {
-		return nil, err
-	}
-
-	// 读取文件内容
-	blacklistBytes, err := os.ReadFile(config.BlackPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(blacklistBytes) <= 0 {
-		return []Blacklist{}, nil
-	}
-
-	// 解析文件内容为 Blacklist 列表
-	var blacklist []Blacklist
-	err = json.Unmarshal(blacklistBytes, &blacklist)
-	if err != nil {
-		return nil, err
-	}
-
-	return blacklist, nil
-}
-
-// writeBlacklistToFile 将黑名单信息写入文件
-func writeBlacklistToFile(bytes []byte) error {
-	// 写入文件
-	if err := os.WriteFile(config.BlackPath, bytes, fs.FileMode(0644)); err != nil {
-		return err
-	}
-
-	return nil
+	return util.NewCache().Set(
+		context.Background(),
+		userRevokeKey(tokenId),
+		strconv.FormatInt(time.Now().Unix(), 10),
+		0,
+	)
 }

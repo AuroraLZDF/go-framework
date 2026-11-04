@@ -5,6 +5,107 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Planned
+- More comprehensive example projects
+- Performance benchmark suite
+- CONTRIBUTING.md guide
+- Code linting configuration (.golangci.yml)
+- Coverage reporting in CI
+
+### Future Considerations
+- Interactive scaffold mode with wizards
+- Code generation subcommands (generate api/model/crud)
+- Microservice architecture templates
+- Monitoring integration (Prometheus, Grafana)
+- Internationalization support
+- Additional middleware (rate limiting, caching, etc.)
+
+## [v0.1.3] - 2026-11-04
+
+### Added
+
+- **Unit tests** for JWT, config loading/validation, errno, CORS, request ID,
+  Authn, response, server application lifecycle, MySQL DSN, DB close and utilities.
+- **Scaffold end-to-end verification**: `scripts/verify-scaffold.sh` generates a
+  project, runs `go mod tidy`/`build`/`vet`, starts it and checks `/health` and `/healthz`.
+- **GitHub Actions CI** (`.github/workflows/ci.yml`): build, vet, gofmt and tests.
+- **Release notes** for v0.1.2 and v0.1.3 (`RELEASE_v0.1.2.md`, `RELEASE_v0.1.3.md`).
+- Server config keys: `shutdown-timeout`, `read-header-timeout`, `read-timeout`,
+  `write-timeout`, `idle-timeout`, `max-header-bytes` (defaults 10s/30s/60s/120s/1MB).
+- Redis config keys: `pool-size`, `dial-timeout`, `read-timeout`, `write-timeout`.
+- JWT `jti` claim on every token; user-level token revocation (`FailureAllClient`).
+- `jwt.blacklist-fail-closed` option (default `false`, fail-open with startup warning
+  when Redis is not configured).
+- Built-in `GET /healthz` liveness endpoint.
+- `App.GetEngine()` accessor for custom middleware registration.
+
+### Changed
+
+- `token.Init(opts *Options) error` now validates a Secret of at least 32 bytes,
+  stores config atomically, and is called automatically by `server.NewApplication`.
+- JWT package name is `token` (import path `.../core/auth/jwt`); `init`/`Sign`/
+  `ParseRequest` now return distinguishable errors; `ExpiresIn` is remaining seconds.
+- HTTP 状态码恢复语义：401（未认证/Token 错误）、404、429、500；业务码与 HTTP 码分离。
+- `errno.Decode` 对未知错误返回统一 500 文案，不再回显 `err.Error()`。
+- `middleware.Authn()` must be mounted explicitly on protected routes.
+- Request ID is now also stored in `r.Context()` (`log.C(ctx)` works) and validated.
+- CORS adds `PATCH` and `X-Requested-With`, echoes whitelist origin with credentials.
+- MySQL DSN uses `loc=UTC` and explicit `timeout/readTimeout/writeTimeout`;
+  pool defaults and `idle <= open` clamping are applied.
+- All built-in config keys support `FRAMEWORK_*` env overrides; config file is optional
+  when `Load("")` is used with env variables/defaults.
+- `log.Init()` returns an error, rotation failures fail startup, `log.Close()` is
+  reference-counted and `log.C(ctx)` attaches request_id.
+- Scaffold generator: `go 1.25.1`, requires framework `v0.1.3`, generates runnable
+  `config.yaml` + `config.example.yaml`, `/health` route, `scaffold version` command;
+  removed the unused viper dependency and template files.
+- Makefile: `install` respects `GOBIN`, `test-scaffold` calls the verification script,
+  added `release-tag` guidance target; ldflags unchanged.
+
+### Fixed
+
+- `log.Warning` no longer uses the wrong zap method.
+- `util.ParamToInt64` reads the URL path parameter instead of the query string.
+- `util.GenerateRandomString` uses `crypto/rand` and handles non-positive lengths.
+- Duplicate/scattered validation removed: `mysql` is only required when `host` is set.
+- `Application.Close()` closes DB before log and is idempotent (`sync.Once`).
+- Unified 404 and panic responses (`response.Error` + no internal detail leak).
+- Scaffold no longer emits code that references non-existent APIs.
+
+### Security
+
+- JWT: HS256-only verification, required `exp`, ≥32-byte secret, atomic config.
+- Request-ID header injection limited to `[A-Za-z0-9._-]{1,128}`.
+- SQL filter field names validated (fail-closed `1 = 0`).
+
+### Breaking Changes
+
+- JWT secret must be ≥32 bytes; short secrets now fail `config.Validate()`/`token.Init()`.
+- Existing tokens without `jti` are rejected — clients must re-login after upgrade.
+- errno responses no longer always use HTTP 200 (clients relying on that must adapt).
+- `log.Init` returns an error; `log.Close` refcounts shared writers.
+- Generated projects require the `v0.1.3` tag and use `RouteRegisterFunc func(*gin.Engine, *gorm.DB)`.
+- `validator` package renamed from `tools`; update imports if you used the old path.
+
+## [v0.1.2] - 2026-08-11
+
+### Added
+
+- **Log rotation**: `log.RotateConfig` supports `daily`, `hourly` and `auto` interval,
+  optional stdout mirroring, and files named `${BasePath}.YYYYMMDD.log` (or `YYYYMMDDHH.log`).
+- Release notes for v0.1.2 and upgrade guide.
+
+### Changed
+
+- `log.Init` accepts `Rotation *RotateConfig`; `Dir` shortcuts are replaced by
+  `OutputPaths`/`Rotation` (see `examples/config.example.yaml`).
+
+### Fixed
+
+- Rotation writer is flushed/closed on `log.Close()`, avoiding truncated logs during shutdown.
+
 ## [v0.1.1] - 2026-04-16
 
 ### Added
@@ -53,7 +154,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Developer Tools
 - **Scaffold Tool** - CLI tool for quick project initialization (`scaffold new <project-name>`)
 - **Makefile** - Simplified build, install, test, and clean commands
-- **Project Templates** - Ready-to-use templates for biz, controller, and SQL layers
 - **Verification Script** - Automated testing script for scaffold tool
 
 #### Documentation
@@ -71,12 +171,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - N/A (initial release)
 
-### Deprecated
-- N/A
-
-### Removed
-- N/A
-
 ### Fixed
 - Import path conflicts between standard library and custom packages
 - Package naming inconsistencies in JWT module
@@ -89,33 +183,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Password hashing with bcrypt (automatic salting)
 - Token blacklist mechanism for logout functionality
 
-### Known Issues
-- No unit tests yet (planned for v0.2.0)
-- HTTPS server support not implemented (marked as optional)
-- No CI/CD pipeline configured
-- Limited example projects
-- No performance benchmarks available
-
-## [Unreleased]
-
-### Planned for v0.2.0
-- Unit tests for core modules (target: >60% coverage)
-- HTTPS server support with TLS
-- CI/CD pipeline with GitHub Actions
-- More comprehensive example projects
-- Performance benchmark suite
-- CONTRIBUTING.md guide
-- Code linting configuration (.golangci.yml)
-
-### Future Considerations
-- Interactive scaffold mode with wizards
-- Plugin system for custom templates
-- Code generation subcommands (generate api/model/crud)
-- Microservice architecture templates
-- Monitoring integration (Prometheus, Grafana)
-- Internationalization support
-- Additional middleware (rate limiting, caching, etc.)
-
 ---
 
-**Note**: This is an alpha release. APIs may change in future versions. Please report any issues or suggestions!
+**Note**: This project follows Semantic Versioning; check [RELEASE_v0.1.3.md](RELEASE_v0.1.3.md)
+for upgrade notes. Please report any issues or suggestions via GitHub Issues!

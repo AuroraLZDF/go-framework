@@ -1,104 +1,123 @@
-#!/bin/bash
+#!/usr/bin/env bash
+#
+# 脚手架端到端验证：
+#   1. 构建 scaffold；
+#   2. 在临时目录生成项目；
+#   3. go mod tidy / go build / go vet；
+#   4. 启动应用并请求 /health 与 /healthz。
+#
+# 默认要求仓库存 ${FRAMEWORK_TAG}（如 v0.1.3）；本地开发设置 FRAMEWORK_LOCAL=1
+# 会向生成项目追加 replace，指向当前仓库。
+set -euo pipefail
 
-# 脚手架工具验证脚本
+FRAMEWORK_MODULE="github.com/AuroraLZDF/go-framework"
+FRAMEWORK_TAG="${FRAMEWORK_TAG:-v0.1.3}"
+APP_NAME="verify-test-app"
+APP_PORT="${APP_PORT:-18080}"
 
-set -e
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
-echo "================================"
-echo "Framework Scaffold 验证测试"
-echo "================================"
-echo ""
+FRAMEWORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORK_DIR="$(mktemp -d)"
+APP_PID=""
 
-# 1. 构建脚手架
-echo "1️⃣  构建脚手架工具..."
-make build
-if [ $? -eq 0 ]; then
-    echo "✅ 构建成功"
-else
-    echo "❌ 构建失败"
+cleanup() {
+    if [ -n "$APP_PID" ] && kill -0 "$APP_PID" 2>/dev/null; then
+        kill "$APP_PID" 2>/dev/null || true
+        wait "$APP_PID" 2>/dev/null || true
+    fi
+    rm -rf "$WORK_DIR"
+}
+trap cleanup EXIT
+
+fail() {
+    echo -e "${RED}❌ $*${NC}" >&2
     exit 1
-fi
-echo ""
+}
 
-# 2. 创建测试项目
-echo "2️⃣  创建测试项目..."
-./bin/scaffold new verify-test-app
-if [ $? -eq 0 ]; then
-    echo "✅ 项目创建成功"
+pass() {
+    echo -e "${GREEN}✅ $*${NC}"
+}
+
+echo "=========================================="
+echo "Scaffold E2E Verification"
+echo "=========================================="
+
+command -v go >/dev/null 2>&1 || fail "go 未安装"
+command -v curl >/dev/null 2>&1 || fail "curl 未安装"
+
+if [ "${FRAMEWORK_LOCAL:-0}" = "1" ]; then
+    echo "📦 本地模式（FRAMEWORK_LOCAL=1）：使用 replace 指向 $FRAMEWORK_DIR"
 else
-    echo "❌ 项目创建失败"
-    exit 1
+    if ! git -C "$FRAMEWORK_DIR" rev-parse -q --verify "refs/tags/${FRAMEWORK_TAG}" >/dev/null 2>&1; then
+        fail "仓库中不存在 tag ${FRAMEWORK_TAG}。
+请先发布版本：
+  git tag -a ${FRAMEWORK_TAG} -m 'release: ${FRAMEWORK_TAG}'
+  git push origin ${FRAMEWORK_TAG}
+或在本地开发时使用：
+  FRAMEWORK_LOCAL=1 ./scripts/verify-scaffold.sh"
+    fi
+    pass "tag ${FRAMEWORK_TAG} 存在"
 fi
+
 echo ""
+echo "🏗️  构建 scaffold..."
+(cd "$FRAMEWORK_DIR" && make build >/dev/null)
 
-# 3. 验证项目结构
-echo "3️⃣  验证项目结构..."
-if [ -d "verify-test-app/cmd/app" ]; then
-    echo "✅ cmd/app 目录存在"
-else
-    echo "❌ cmd/app 目录缺失"
-    exit 1
+echo "📁 生成项目..."
+(cd "$WORK_DIR" && "$FRAMEWORK_DIR/bin/scaffold" new "$APP_NAME" >/dev/null)
+cd "$WORK_DIR/$APP_NAME"
+
+for dir in cmd/app internal/biz internal/controller internal/store internal/model internal/service configs sql assets logs; do
+    [ -d "$dir" ] || fail "缺少目录: $dir"
+done
+for file in go.mod config.yaml config.example.yaml README.md .gitignore cmd/app/main.go; do
+    [ -f "$file" ] || fail "缺少文件: $file"
+done
+pass "项目结构正确"
+
+grep -q "module ${APP_NAME}" go.mod || fail "go.mod module 名称错误"
+grep -q "name: ${APP_NAME}" config.yaml || fail "config.yaml 中缺少项目名"
+grep -q "${FRAMEWORK_MODULE} ${FRAMEWORK_TAG}" go.mod || fail "go.mod 未依赖 ${FRAMEWORK_MODULE} ${FRAMEWORK_TAG}"
+grep -q '/health' cmd/app/main.go || fail "生成的 main.go 缺少 /health 路由"
+grep -q 'Get("/healthz")' cmd/app/main.go 2>/dev/null || true
+pass "生成内容检查通过"
+
+if [ "${FRAMEWORK_LOCAL:-0}" = "1" ]; then
+    grep -q "replace ${FRAMEWORK_MODULE} =>" go.mod || echo "replace ${FRAMEWORK_MODULE} => ${FRAMEWORK_DIR}" >> go.mod
+    pass "已追加本地 replace"
 fi
 
-if [ -d "verify-test-app/internal/biz" ]; then
-    echo "✅ internal/biz 目录存在"
-else
-    echo "❌ internal/biz 目录缺失"
-    exit 1
+echo "📦 go mod tidy / build / vet..."
+go mod tidy >/dev/null
+go build -o app ./cmd/app
+go vet ./...
+pass "依赖解析与编译通过"
+
+echo "🚀 启动应用并检查健康检查..."
+FRAMEWORK_SERVER_HTTP_ADDR="127.0.0.1:${APP_PORT}" ./app >app.log 2>&1 &
+APP_PID=$!
+
+ready=0
+for _ in $(seq 1 40); do
+    if curl -fsS "http://127.0.0.1:${APP_PORT}/healthz" >/dev/null 2>&1; then
+        ready=1
+        break
+    fi
+    sleep 0.25
+done
+
+if [ "$ready" -ne 1 ]; then
+    cat app.log >&2 || true
+    fail "应用未在 10s 内就绪（/healthz）"
 fi
 
-if [ -f "verify-test-app/go.mod" ]; then
-    echo "✅ go.mod 文件存在"
-else
-    echo "❌ go.mod 文件缺失"
-    exit 1
-fi
+curl -fsS "http://127.0.0.1:${APP_PORT}/healthz" >/dev/null || fail "/healthz 请求失败"
+curl -fsS "http://127.0.0.1:${APP_PORT}/health" >/dev/null || fail "/health 请求失败"
+pass "/healthz 与 /health 均返回成功"
 
-if [ -f "verify-test-app/config.example.yaml" ]; then
-    echo "✅ config.example.yaml 文件存在"
-else
-    echo "❌ config.example.yaml 文件缺失"
-    exit 1
-fi
-
-if [ -f "verify-test-app/README.md" ]; then
-    echo "✅ README.md 文件存在"
-else
-    echo "❌ README.md 文件缺失"
-    exit 1
-fi
 echo ""
-
-# 4. 验证配置文件内容
-echo "4️⃣  验证配置文件内容..."
-if grep -q "verify-test-app" verify-test-app/config.example.yaml; then
-    echo "✅ 项目名称已正确配置"
-else
-    echo "❌ 项目名称配置错误"
-    exit 1
-fi
-echo ""
-
-# 5. 验证主程序文件
-echo "5️⃣  验证主程序文件..."
-if grep -q "verify-test-app" verify-test-app/cmd/app/main.go; then
-    echo "✅ 主程序包含正确的项目名称"
-else
-    echo "❌ 主程序项目名称错误"
-    exit 1
-fi
-echo ""
-
-# 6. 清理测试项目
-echo "6️⃣  清理测试项目..."
-rm -rf verify-test-app
-echo "✅ 清理完成"
-echo ""
-
-echo "================================"
-echo "✅ 所有验证测试通过！"
-echo "================================"
-echo ""
-echo "脚手架工具已准备就绪，可以开始使用："
-echo "  ./bin/scaffold new my-app"
-echo ""
+echo -e "${GREEN}✅ 脚手架端到端验证通过！${NC}"

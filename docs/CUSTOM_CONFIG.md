@@ -31,9 +31,10 @@ third-party:
 
 ## ✅ 解决方案
 
-### 方案一：使用 Viper 直接读取（最简单）⭐
+### 方案一：独立 Viper 实例读取（最简单）⭐
 
-Framework 内部使用 Viper 加载配置，你可以直接使用 Viper 读取任意配置项。
+`config.Load` 内部使用独立的 Viper 实例，**不会写入全局 Viper**。因此读取自定义配置时，
+需要自行用 `viper.New()` 加载同一份 YAML 文件（或扩展 `config.Config`，见方案二）。
 
 #### 步骤 1：导入 Viper
 
@@ -48,7 +49,7 @@ package main
 
 import (
     "log"
-    
+
     "github.com/AuroraLZDF/go-framework/core/config"
     "github.com/spf13/viper"
 )
@@ -59,17 +60,23 @@ func main() {
     if err != nil {
         log.Fatalf("Failed to load config: %v", err)
     }
-    
-    // 使用 viper 读取自定义配置
-    apiKey := viper.GetString("custom.api-key")
-    timeout := viper.GetInt("custom.timeout")
-    enableCache := viper.GetBool("custom.features.enable-cache")
-    maxRetries := viper.GetInt("custom.features.max-retries")
-    
+
+    // 独立 Viper 实例读取同一份文件中的自定义配置
+    v := viper.New()
+    v.SetConfigFile("./config/config.yaml")
+    if err := v.ReadInConfig(); err != nil {
+        log.Fatalf("Failed to read custom config: %v", err)
+    }
+
+    apiKey := v.GetString("custom.api-key")
+    timeout := v.GetInt("custom.timeout")
+    enableCache := v.GetBool("custom.features.enable-cache")
+    maxRetries := v.GetInt("custom.features.max-retries")
+
     // 读取嵌套配置
-    wechatAppId := viper.GetString("third-party.wechat.app-id")
-    wechatSecret := viper.GetString("third-party.wechat.app-secret")
-    
+    wechatAppId := v.GetString("third-party.wechat.app-id")
+    wechatSecret := v.GetString("third-party.wechat.app-secret")
+
     log.Printf("API Key: %s", apiKey)
     log.Printf("Timeout: %d", timeout)
     log.Printf("WeChat AppID: %s", wechatAppId)
@@ -78,35 +85,40 @@ func main() {
 
 #### Viper 常用方法
 
+以下示例中的 `v` 指你自行创建的 Viper 实例（`v := viper.New()`）：
+
 ```go
 // 字符串
-value := viper.GetString("key")
+value := v.GetString("key")
 
 // 整数
-value := viper.GetInt("key")
+value := v.GetInt("key")
 
 // 浮点数
-value := viper.GetFloat64("key")
+value := v.GetFloat64("key")
 
 // 布尔值
-value := viper.GetBool("key")
+value := v.GetBool("key")
 
 // 字符串切片
-value := viper.GetStringSlice("key")
+value := v.GetStringSlice("key")
 
 // 字符串映射
-value := viper.GetStringMapString("key")
+value := v.GetStringMapString("key")
 
 // 任意类型
-value := viper.Get("key")
+value := v.Get("key")
 
 // 检查键是否存在
-exists := viper.IsSet("key")
+exists := v.IsSet("key")
 ```
 
 ---
 
 ### 方案二：创建自定义配置结构体（推荐用于复杂配置）⭐⭐⭐
+
+> 示例中 `viper.Unmarshal` 需要作用在自行加载的 Viper 实例上（`v.Unmarshal(&extended)`），
+> 全局 Viper 不会包含 `config.Load` 读取的文件内容。
 
 如果你的自定义配置比较复杂，建议创建专门的结构体。
 
@@ -218,6 +230,8 @@ func main() {
 ---
 
 ### 方案三：使用 Map 存储动态配置（最灵活）
+
+> 同上：请使用自行创建的 Viper 实例（`v.GetStringMap(...)`）。
 
 如果配置项经常变化，可以使用 map 来存储。
 

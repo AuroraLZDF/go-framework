@@ -6,43 +6,59 @@
 package util
 
 import (
+	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
 
-// AddFileIfNotExists add file if not exists
+// AddFileIfNotExists 若文件不存在则创建（包括父目录），已存在时直接返回 nil.
+// 注意：检查与创建之间存在 TOCTOU 窗口，并发调用方应自行保证互斥.
 func AddFileIfNotExists(path string) error {
-	// 检查文件或目录是否存在
-	if _, err := os.Stat(path); err == nil {
+	info, err := os.Stat(path)
+	if err == nil {
+		if info.IsDir() {
+			return fmt.Errorf("util: %q is a directory, not a file", path)
+		}
+
 		return nil
 	}
+	if !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("util: stat %q: %w", path, err)
+	}
 
-	// 创建目录
-	if err := AddDir(path); err != nil {
+	if err := AddDir(filepath.Dir(path)); err != nil {
 		return err
 	}
 
-	// 创建文件
-	if err := AddFile(path); err != nil {
-		return err
-	}
-	return nil
+	return AddFile(path)
 }
 
-// AddDir add dir
+// AddDir 创建目录（含父目录）.
 func AddDir(path string) error {
-	// 创建目录
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return err
+	if err := os.MkdirAll(path, 0755); err != nil {
+		return fmt.Errorf("util: create dir %q: %w", path, err)
 	}
+
 	return nil
 }
 
-// AddFile add file
+// AddFile 创建空文件；文件已存在时不覆盖、不截断，直接返回 nil.
+// 创建后立即关闭文件句柄，避免句柄泄漏.
 func AddFile(path string) error {
-	// 创建文件
-	if _, err := os.Create(path); err != nil {
-		return err
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return nil
+		}
+
+		return fmt.Errorf("util: create file %q: %w", path, err)
 	}
+
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("util: close file %q: %w", path, err)
+	}
+
 	return nil
 }

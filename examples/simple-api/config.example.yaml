@@ -1,0 +1,57 @@
+# simple-api 示例配置
+# 默认不连接 MySQL / Redis，可直接启动：go run .
+# 所有配置项均可用 FRAMEWORK_ 前缀的环境变量覆盖
+
+app:
+  name: simple-api
+  version: 1.0.0
+  mode: debug  # debug, release, test
+
+server:
+  http-addr: :8080
+  shutdown-timeout: 10s
+  read-header-timeout: 10s
+  read-timeout: 30s
+  write-timeout: 60s
+  idle-timeout: 120s
+  # 启用 HTTPS 时必须同时提供证书和私钥
+  # https-addr: :8443
+  # tls-cert: ./cert/server.crt
+  # tls-key: ./cert/server.key
+
+database:
+  mysql:
+    # 留空表示不连接 MySQL
+    host: ""
+    username: root
+    password: your_password
+    database: simple_api_db
+    max-idle-connections: 10
+    max-open-connections: 100
+    max-connection-life-time: 30s
+    log-level: 4  # 1: silent, 2: error, 3: warn, 4: info
+
+redis:
+  # 留空表示不使用 Redis（/api/v1/profile 的 JWT 校验不依赖 Redis）
+  addr: ""
+  port: 6379
+  password: ""
+  db: 0
+  pool-size: 10
+  dial-timeout: 5s
+  read-timeout: 3s
+  write-timeout: 3s
+
+jwt:
+  # 至少 32 字节；示例值仅供本地运行，生产环境请替换
+  secret: change-this-to-a-random-secret-key-in-production
+  expire: 24  # hours
+  token-id: X-User-ID
+  blacklist-prefix: "jwt:blacklist:"
+
+log:
+  disable-caller: false
+  disable-stacktrace: false
+  level: info  # debug, info, warn, error
+  format: console  # console, json
+  dir: logs

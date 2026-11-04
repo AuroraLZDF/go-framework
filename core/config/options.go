@@ -40,6 +40,16 @@ type ServerConfig struct {
 	HTTPSAddr string `mapstructure:"https-addr"`
 	TLSCert   string `mapstructure:"tls-cert"`
 	TLSKey    string `mapstructure:"tls-key"`
+
+	// ShutdownTimeout 优雅关闭的最长等待时间
+	ShutdownTimeout time.Duration `mapstructure:"shutdown-timeout"`
+
+	// HTTP 服务器超时与请求头大小限制，默认 10s/30s/60s/120s/1MB
+	ReadHeaderTimeout time.Duration `mapstructure:"read-header-timeout"`
+	ReadTimeout       time.Duration `mapstructure:"read-timeout"`
+	WriteTimeout      time.Duration `mapstructure:"write-timeout"`
+	IdleTimeout       time.Duration `mapstructure:"idle-timeout"`
+	MaxHeaderBytes    int           `mapstructure:"max-header-bytes"`
 }
 
 // DatabaseConfig 数据库配置
@@ -65,14 +75,21 @@ type RedisConfig struct {
 	Port     string `mapstructure:"port"`
 	Password string `mapstructure:"password"`
 	DB       int    `mapstructure:"db"`
+
+	// 连接池与超时配置，默认 10/5s/3s/3s
+	PoolSize     int           `mapstructure:"pool-size"`
+	DialTimeout  time.Duration `mapstructure:"dial-timeout"`
+	ReadTimeout  time.Duration `mapstructure:"read-timeout"`
+	WriteTimeout time.Duration `mapstructure:"write-timeout"`
 }
 
 // JWTConfig JWT 配置
 type JWTConfig struct {
-	Secret        string `mapstructure:"secret"`
-	Expire        int    `mapstructure:"expire"`
-	TokenID       string `mapstructure:"token-id"`
-	BlacklistPath string `mapstructure:"blacklist-path"`
+	Secret              string `mapstructure:"secret"`
+	Expire              int    `mapstructure:"expire"`
+	TokenID             string `mapstructure:"token-id"`
+	BlacklistPrefix     string `mapstructure:"blacklist-prefix"`
+	BlacklistFailClosed bool   `mapstructure:"blacklist-fail-closed"`
 }
 
 // LogConfig 日志配置

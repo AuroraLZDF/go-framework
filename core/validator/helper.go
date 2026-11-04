@@ -3,17 +3,61 @@
 // license that can be found in the LICENSE file. The original repo for
 // this file is https://github.com/auroralzdf/biddingAI.
 
-package tools
+package validator
 
 import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sync"
 
 	"github.com/go-playground/validator/v10"
 )
 
-const defaultLimitValue = 20
+const (
+	defaultLimitValue = 20
+
+	// maxRegexCacheEntries 限制正则缓存条目数，避免不可信模式导致内存无限增长.
+	maxRegexCacheEntries = 256
+)
+
+// regexCacheEntry 缓存正则编译结果：valid=false 时表示该模式编译失败（negative cache）.
+type regexCacheEntry struct {
+	re    *regexp.Regexp
+	valid bool
+}
+
+var (
+	// regexCache 缓存已编译的正则表达式（含非法模式），避免重复编译.
+	regexCacheMu sync.RWMutex
+	regexCache   = make(map[string]regexCacheEntry, maxRegexCacheEntries)
+)
+
+// compiledRegex 返回模式对应的缓存项，未命中时编译并写入缓存（含非法模式）.
+func compiledRegex(pattern string) regexCacheEntry {
+	regexCacheMu.RLock()
+	entry, ok := regexCache[pattern]
+	regexCacheMu.RUnlock()
+	if ok {
+		return entry
+	}
+
+	compiled, err := regexp.Compile(pattern)
+	entry = regexCacheEntry{re: compiled, valid: err == nil}
+
+	regexCacheMu.Lock()
+	if len(regexCache) >= maxRegexCacheEntries {
+		// 简单淘汰：缓存满时删除任意一个条目，保证容量有界
+		for key := range regexCache {
+			delete(regexCache, key)
+			break
+		}
+	}
+	regexCache[pattern] = entry
+	regexCacheMu.Unlock()
+
+	return entry
+}
 
 // DefaultLimit 设置默认查询记录数.
 func DefaultLimit(limit int) int {
@@ -29,15 +73,22 @@ func ValidateRegex(fl validator.FieldLevel) bool {
 	// 获取字段值（字符串类型）
 	value := fl.Field().String()
 	// 获取标签中定义的正则表达式（如 binding:"customRegex=^1[3-9]\\d{9}$"）
-	regexPattern := fl.Param()
-
-	// 编译正则并匹配
-	matched, err := regexp.MatchString(regexPattern, value)
-	if err != nil {
-		// 正则表达式无效时返回 false
+	entry := compiledRegex(fl.Param())
+	if !entry.valid {
+		// 非法正则表达式一律校验失败（negative cache 避免重复编译）
 		return false
 	}
-	return matched
+
+	return entry.re.MatchString(value)
+}
+
+// RegisterCustomValidations 注册自定义校验规则（customRegex）
+func RegisterCustomValidations(v *validator.Validate) error {
+	if v == nil {
+		return fmt.Errorf("validator is nil")
+	}
+
+	return v.RegisterValidation("customRegex", ValidateRegex)
 }
 
 // JSONToMarkdown 把任意对象序列化为 JSON 字符串，并包裹 ```json 标记

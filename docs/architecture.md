@@ -62,10 +62,18 @@ type Application struct {
     db     *gorm.DB
 }
 
+type RouteRegisterFunc func(engine *gin.Engine, db *gorm.DB)
+
 func NewApplication(cfg *config.Config) (*Application, error)
 func (app *Application) RegisterRoutes(registerFunc RouteRegisterFunc)
 func (app *Application) Run(ctx context.Context) error
 ```
+
+**运行时默认值**：
+- HTTP 超时：ReadHeader 10s / Read 30s / Write 60s / Idle 120s
+- 请求头大小上限：1MB；TLS 最低版本 1.2
+- 内置 `GET /healthz` 存活探针（仅进程存活，不检查依赖）
+- 收到 SIGINT/SIGTERM 后按 `server.shutdown-timeout`（默认 10s）优雅关闭
 
 ### 2. Config (配置管理)
 
@@ -101,9 +109,10 @@ Config
 ### 4. Auth (认证)
 
 #### JWT Token 管理
-- Token 签发（Sign）
-- Token 验证（ParseRequest）
-- Token 黑名单
+- Token 签发（Sign，自动携带 `jti`，`ExpiresIn` 为剩余秒数）
+- Token 验证（ParseRequest，要求 `jti` 且校验算法/过期时间）
+- Token 黑名单（jti 级黑名单 + 用户级全端撤销；Redis 不可用时默认 fail-open，
+  可通过 `jwt.blacklist-fail-closed: true` 改为拒绝）
 
 #### 密码加密
 - bcrypt 加密算法
@@ -112,18 +121,17 @@ Config
 ### 5. Middleware (中间件)
 
 **内置中间件**:
-- `Authn()` - JWT 认证
-- `Cors()` - CORS 跨域
-- `RequestID()` - 请求 ID 追踪
-- `Logger()` - 请求日志
-- `Recovery()` - Panic 恢复
+- `Authn()` - JWT 认证（**需显式挂载**：`v1.Use(middleware.Authn())`）
+- `Cors()` - CORS 跨域（NewApplication 自动注册）
+- `RequestID()` - 请求 ID 追踪（NewApplication 自动注册，并写入 `r.Context()`）
+- `Logger()` / `Recovery()` - 请求日志与 Panic 恢复（自动注册）
 
 ### 6. Response (响应封装)
 
 **统一响应格式**:
 ```json
 {
-  "code": 0,
+  "code": 200,
   "message": "ok",
   "content": {...}
 }
@@ -138,10 +146,11 @@ response.Error(c, errno.ErrTokenInvalid)
 ### 7. Log (日志系统)
 
 **特性**:
-- 结构化日志（Zap）
-- 多输出（文件 + 控制台）
-- 日志轮转（按日期）
-- 请求 ID 追踪
+- 结构化日志（Zap，同步写入）
+- 多输出（文件 + 控制台，通过 `OutputPaths` / `Rotation.Stdout`）
+- 日志轮转（`daily` / `hourly`，文件名 `${BasePath}.YYYYMMDD.log`）
+- 请求 ID 追踪（`log.C(ctx)` 自动附加 request_id）
+- 日志初始化/轮转失败会使应用启动失败；`log.Close()` 带引用计数
 
 **使用示例**:
 ```go
@@ -229,7 +238,7 @@ type UserBiz struct {
 func (ctrl *UserController) Login(c *gin.Context) {
     var req LoginRequest
     if err := c.ShouldBindJSON(&req); err != nil {
-        response.Error(c, errno.ErrValidationFailed)
+        response.Error(c, errno.ErrBind)
         return
     }
     
@@ -246,7 +255,7 @@ func (ctrl *UserController) Login(c *gin.Context) {
 func (b *userBiz) Login(ctx context.Context, phone, code string) (*response.TokenResponse, error) {
     // 1. 验证验证码
     if !b.phoneCodeBiz.VerifyCode(phone, code) {
-        return nil, errno.ErrInvalidCode
+        return nil, errno.ErrInvalidParameter
     }
     
     // 2. 查询用户
@@ -310,15 +319,19 @@ userBiz := biz.NewUserBiz(store, &AliyunSMS{})
 
 ### 3. 自定义配置项
 
-```yaml
-# config.yaml
-extra:
-  my-custom-config: value
-```
+`config.Load` 使用独立的 Viper 实例，不会写入全局 Viper，`Config` 也没有 `Extra` 字段。
+推荐两种方式：
+
+1. 扩展 `config.Config`（嵌入并添加 `mapstructure` 字段），再自行解码；
+2. 使用 `viper.New()` 读取同一 YAML 文件（参考 `docs/CUSTOM_CONFIG.md`）。
 
 ```go
-// 读取自定义配置
-customConfig := cfg.Extra["my-custom-config"]
+v := viper.New()
+v.SetConfigFile("config.yaml")
+if err := v.ReadInConfig(); err != nil {
+    panic(err)
+}
+customConfig := v.GetString("custom.my-config")
 ```
 
 ## 性能优化
@@ -328,8 +341,8 @@ customConfig := cfg.Extra["my-custom-config"]
 ```yaml
 database:
   mysql:
-    max-idle-connections: 100
-    max-open-connections: 20
+    max-idle-connections: 10
+    max-open-connections: 100
     max-connection-life-time: 30s
 ```
 
@@ -342,18 +355,19 @@ redisOpts := &db.RedisOptions{
 }
 ```
 
-### 3. 日志异步写入
+### 3. 日志写入
 
-Zap 默认使用异步写入，不会阻塞主流程。
+Zap 采用同步写入（结构化字段），保证错误日志不丢失；日志轮转由内部的
+`RotateWriter` 完成，关闭时通过引用计数刷新并关闭文件。
 
 ## 安全考虑
 
 ### 1. JWT Secret
 
-⚠️ **重要**: 生产环境必须使用强随机密钥！
+⚠️ **重要**: JWT secret 至少 32 字节，`config.Validate()` 与 `token.Init()` 都会强制校验！
 
 ```bash
-# 生成随机密钥
+# 生成随机密钥（44 字符，满足要求）
 openssl rand -base64 32
 ```
 
@@ -362,10 +376,11 @@ openssl rand -base64 32
 使用 bcrypt 算法，自动加盐：
 
 ```go
-import "go-framework/core/auth/password"
+// 注意：目录名为 password，但包声明为 auth
+import auth "github.com/AuroraLZDF/go-framework/core/auth/password"
 
-hashedPassword, _ := password.Encrypt(rawPassword)
-password.Match(hashedPassword, rawPassword)
+hashedPassword, _ := auth.Encrypt(rawPassword)
+auth.Match(hashedPassword, rawPassword)
 ```
 
 ### 3. SQL 注入防护

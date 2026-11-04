@@ -2,10 +2,9 @@
 
 一个基于 Gin 的高性能、可扩展的 Go Web 开发框架，提供完整的基础设施组件和最佳实践。
 
-[![Release](https://img.shields.io/badge/release-v0.1.0--alpha-blue.svg)](https://github.com/AuroraLZDF/go-framework/releases)
-[![Go Version](https://img.shields.io/badge/go-1.23+-blue.svg)](https://golang.org)
+[![Release](https://img.shields.io/badge/release-v0.1.3-blue.svg)](https://github.com/AuroraLZDF/go-framework/releases/tag/v0.1.3)
+[![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://go.dev/dl/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Go Report Card](https://goreportcard.com/badge/github.com/AuroraLZDF/go-framework)](https://goreportcard.com/report/github.com/AuroraLZDF/go-framework)
 
 ## 🌟 特性
@@ -39,10 +38,8 @@ cd my-app
 # 安装依赖
 go mod tidy
 
-# 配置项目
-cp config.example.yaml config.yaml
-# 编辑 config.yaml，填入你的配置
-# 提示：可以添加自定义配置项，使用 viper.GetString() 读取
+# 编辑生成的 config.yaml（已包含可直接启动的默认配置）
+# 注意：JWT secret 至少 32 字节，config.Validate 会校验
 
 # 运行应用
 go run cmd/app/main.go
@@ -53,7 +50,7 @@ go run cmd/app/main.go
 #### 安装
 
 ```bash
-go get go-framework@latest
+go get github.com/AuroraLZDF/go-framework@v0.1.3
 ```
 
 ### 最小示例
@@ -64,9 +61,10 @@ package main
 import (
     "context"
     "github.com/gin-gonic/gin"
-    "go-framework/core/config"
-    "go-framework/core/response"
-    "go-framework/core/server"
+    "gorm.io/gorm"
+    "github.com/AuroraLZDF/go-framework/core/config"
+    "github.com/AuroraLZDF/go-framework/core/response"
+    "github.com/AuroraLZDF/go-framework/core/server"
 )
 
 func main() {
@@ -77,7 +75,7 @@ func main() {
     app, _ := server.NewApplication(cfg)
     
     // 注册路由
-    app.RegisterRoutes(func(engine *gin.Engine, db interface{}) {
+    app.RegisterRoutes(func(engine *gin.Engine, db *gorm.DB) {
         engine.GET("/hello", func(c *gin.Context) {
             response.Success(c, gin.H{"message": "Hello World"}, "ok")
         })
@@ -99,6 +97,11 @@ app:
 
 server:
   http-addr: :8080
+  read-header-timeout: 10s
+  read-timeout: 30s
+  write-timeout: 60s
+  idle-timeout: 120s
+  max-header-bytes: 1048576
 
 database:
   mysql:
@@ -108,12 +111,16 @@ database:
     database: mydb
 
 jwt:
-  secret: your-secret-key
+  secret: change-me-please-use-a-random-32byte-secret  # 至少 32 字节
   expire: 24
+  token-id: X-User-ID
+  blacklist-prefix: "jwt:blacklist:"
+  blacklist-fail-closed: false
 
 log:
   level: info
   format: json
+  dir: logs
 ```
 
 ## 📁 项目结构
@@ -138,9 +145,8 @@ framework/
 │   └── version/           # 版本管理
 ├── scaffold/              # 脚手架工具
 │   ├── cmd/              # 命令行入口
-│   ├── internal/         # 内部实现
-│   │   └── generator/    # 代码生成器
-│   └── templates/        # 项目模板
+│   └── internal/         # 内部实现
+│       └── generator/    # 代码生成器
 ├── examples/              # 示例项目
 └── docs/                  # 文档
 ```
@@ -169,18 +175,22 @@ if err := cfg.Validate(); err != nil {
 
 #### 读取自定义配置
 
-如果你在 `config.yaml` 中添加了自定义配置，可以使用 Viper 直接读取：
+`config.Load` 使用独立的 Viper 实例，不会写入全局 Viper。推荐扩展 `config.Config`
+结构（见 [自定义配置读取](docs/CUSTOM_CONFIG.md)）；也可以自行创建 Viper 实例读取同一文件：
 
 ```go
 import "github.com/spf13/viper"
 
+v := viper.New()
+v.SetConfigFile("config.yaml")
+if err := v.ReadInConfig(); err != nil {
+    panic(err)
+}
+
 // config.yaml:
 // custom:
 //   api-key: abc123
-//   timeout: 30
-
-apiKey := viper.GetString("custom.api-key")
-timeout := viper.GetInt("custom.timeout")
+apiKey := v.GetString("custom.api-key")
 ```
 
 **📚 更多详情：**
@@ -191,7 +201,7 @@ timeout := viper.GetInt("custom.timeout")
 ### 2. 应用服务器 (server)
 
 ```go
-import "go-framework/core/server"
+import "github.com/AuroraLZDF/go-framework/core/server"
 
 app, err := server.NewApplication(cfg)
 if err != nil {
@@ -210,25 +220,33 @@ app.Run(context.Background())
 ### 3. JWT 认证
 
 ```go
-import "go-framework/core/auth/jwt"
+import (
+    token "github.com/AuroraLZDF/go-framework/core/auth/jwt"
+    "github.com/AuroraLZDF/go-framework/core/middleware"
+)
 
-// 初始化 JWT
-jwt.Init(&jwt.Options{
-    Secret:  "your-secret",
-    Expire:  24,
-    TokenID: "X-User-ID",
-})
+// 初始化 JWT：Secret 至少 32 字节；server.NewApplication(cfg) 会自动完成此接线
+if err := token.Init(&token.Options{
+    Secret:  "change-me-please-use-a-random-32byte-secret", // ≥32 字节
+    Expire:  24, // 单位：小时
+    TokenId: "X-User-ID",
+}); err != nil {
+    panic(err)
+}
 
-// 签发 Token
-token, err := jwt.Sign("user-123")
+// 签发 Token：参数必须是数字型用户 ID（Authn 会将其解析为 int64）；
+// 每个 Token 均带 jti，响应中的 ExpiresIn 为剩余秒数
+tokenResp, err := token.Sign("12345")
 
-// 验证 Token（在中间件中自动完成）
+// 受保护路由需显式挂载认证中间件
+// 请求头格式：Authorization: Bearer <token>
+v1.Use(middleware.Authn())
 ```
 
 ### 4. 数据库连接
 
 ```go
-import "go-framework/core/database/db"
+import "github.com/AuroraLZDF/go-framework/core/database/db"
 
 // MySQL
 mysqlOpts := &db.MySQLOptions{
@@ -251,14 +269,21 @@ redis, err := db.InitRedis(redisOpts)
 ### 5. 日志系统
 
 ```go
-import "go-framework/core/log"
+import "github.com/AuroraLZDF/go-framework/core/log"
 
-// 初始化日志
-log.Init(&log.Options{
-    Level:  "info",
-    Format: "json",
-    Dir:    "logs",
-})
+// 初始化日志：默认输出到 stdout；配置 Rotation 可写文件并启用轮转
+if err := log.Init(&log.Options{
+    Level:       "info",
+    Format:      "json",
+    OutputPaths: []string{"stdout"},
+    Rotation: &log.RotateConfig{
+        BasePath: "logs/app",
+        Interval: "daily",
+        Stdout:   true,
+    },
+}); err != nil {
+    panic(err)
+}
 
 // 使用日志
 log.Info("Server started", "port", 8080)
@@ -268,33 +293,39 @@ log.Error("Something failed", "err", err)
 ### 6. 统一响应
 
 ```go
-import "go-framework/core/response"
+import (
+    "github.com/AuroraLZDF/go-framework/core/errno"
+    "github.com/AuroraLZDF/go-framework/core/response"
+)
 
 // 成功响应
 response.Success(c, data, "ok")
 
-// 错误响应
+// 错误响应：HTTP 状态码与业务码由 errno 决定（如 401 / 404 / 500）
 response.Error(c, errno.ErrTokenInvalid)
 ```
 
 ### 7. 中间件
 
 ```go
-import "go-framework/core/middleware"
+import "github.com/AuroraLZDF/go-framework/core/middleware"
 
-// 认证中间件
+// 认证中间件需显式挂载，请求头格式：Authorization: Bearer <token>
 v1.Use(middleware.Authn())
 
-// 请求 ID 中间件（自动注册）
-// CORS 中间件（自动注册）
+// Request ID / CORS 中间件由 server.NewApplication 自动注册
 ```
 
 ## 📖 文档
 
 - [快速开始指南](docs/quick-start.md)
 - [架构设计说明](docs/architecture.md)
-- [API 参考文档](docs/api-reference.md)
-- [配置说明](docs/configuration.md)
+- [配置使用指南](docs/CONFIG_USAGE.md)
+- [配置快速参考](docs/CONFIG_QUICK_REFERENCE.md)
+- [自定义配置](docs/CUSTOM_CONFIG.md)
+- [文档索引](docs/DOCUMENTATION_GUIDE.md)
+- [脚手架使用指南](scaffold/README.md)
+- [脚手架快速开始](scaffold/QUICKSTART.md)
 
 ## 💡 最佳实践
 
@@ -369,25 +400,6 @@ go test ./...
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
-## 📚 文档
-
-### 快速开始
-
-- [快速开始指南](docs/quick-start.md) - 5分钟上手教程
-- [架构设计文档](docs/architecture.md) - 框架架构和最佳实践
-
-### 配置管理
-
-- [配置使用指南](docs/CONFIG_USAGE.md) - 完整的配置加载和使用说明
-- [自定义配置读取](docs/CUSTOM_CONFIG.md) - 如何读取 config.yaml 中的自定义配置项
-- [配置快速参考](docs/CONFIG_QUICK_REFERENCE.md) - 常用配置项速查
-
-### 脚手架工具
-
-- [脚手架使用指南](scaffold/README.md) - 完整的使用说明
-- [脚手架快速开始](scaffold/QUICKSTART.md) - 快速创建新项目
-- [脚手架开发文档](scaffold/DEVELOPMENT.md) - 开发和扩展脚手架
-
 ## 📄 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
@@ -399,7 +411,7 @@ go test ./...
 ## 🙏 致谢
 
 - [Gin](https://github.com/gin-gonic/gin) - Web 框架
-- [GORM](https://github.com/go-gorm/gorm) - ORM 库
+- [GORM](https://gorm.io/gorm) - ORM 库
 - [Viper](https://github.com/spf13/viper) - 配置管理
 - [Zap](https://github.com/uber-go/zap) - 日志库
 
