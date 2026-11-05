@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `docs/api-stability.md`：v1.0 API 冻结范围、稳定性分级（Stable/Experimental/Internal）、
+  语义化版本承诺、弃用政策与 API 决策记录（ADR）。
+- `docs/migration-0.x-to-1.0.md`：从 v0.1.x/v0.2.0 升级到 v1.0.0 的破坏性变更清单、
+  逐项迁移示例、客户端契约变化、常见报错对照与回滚说明。
+- `core/auth/jwt`、`core/context`、`core/service` 增加包级文档（`doc.go`）：
+  说明 `token`/`known` 包名与导入路径不一致的约定，以及 `core/service` 为实验性 API。
+- 测试：`core/version/verflag` 类型导出后的可用性覆盖（见 Changed）。
+
+### Changed
+- `core/version/verflag`：导出 `VersionValue` 类型，使 `Version`/`VersionVar` 可被外部
+  命令行工具实际调用（此前参数类型未导出，API 不可用）。
+- `core/log.NewLogger` 返回 `log.Logger` 接口，不再返回未导出的具体类型 `*zapLogger`；
+  行为不变（初始化失败仍回退 stdout logger，不注册为全局 logger）。
+
+### Deprecated
+- `middleware.Cors`：请改用 `middleware.CORS()`，计划在 v2.0.0 移除。
+- `token.ErrMissingHeader`、`token.ErrBlacklistToken`、`token.ErrParseToken`：
+  请改用 `errno.ErrTokenMissing`、`errno.ErrTokenBlacklisted`、`errno.ErrTokenInvalid`，
+  计划在 v2.0.0 移除。
+
 ### Planned
 - More comprehensive example projects
 - Performance benchmark suite

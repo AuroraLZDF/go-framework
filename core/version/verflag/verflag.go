@@ -1,7 +1,7 @@
 // Copyright 2022 Innkeeper auroralzdf auroralzdf@gmail.com. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file. The original repo for
-// this file is https://github.com/auroralzdf/biddingAI.
+// this file is https://github.com/AuroraLZDF/go-framework.
 
 package verflag
 
@@ -15,13 +15,14 @@ import (
 	"github.com/AuroraLZDF/go-framework/core/version"
 )
 
-type versionValue int
+// VersionValue 表示 --version 标志的状态值.
+type VersionValue int
 
 // 定义一些常量.
 const (
-	VersionFalse versionValue = 0
-	VersionTrue  versionValue = 1
-	VersionRaw   versionValue = 2
+	VersionFalse VersionValue = 0
+	VersionTrue  VersionValue = 1
+	VersionRaw   VersionValue = 2
 )
 
 const (
@@ -31,16 +32,16 @@ const (
 
 var versionFlag = Version(versionFlagName, VersionFalse, "Print version information and quit.")
 
-func (v *versionValue) IsBoolFlag() bool {
+func (v *VersionValue) IsBoolFlag() bool {
 	return true
 }
 
-func (v *versionValue) Get() interface{} {
+func (v *VersionValue) Get() interface{} {
 	return v
 }
 
 // String 实现了 pflag.Value 接口中的 String 方法.
-func (v *versionValue) String() string {
+func (v *VersionValue) String() string {
 	if *v == VersionRaw {
 		return strRawVersion
 	}
@@ -49,7 +50,7 @@ func (v *versionValue) String() string {
 }
 
 // Set 实现了 pflag.Value 接口中的 Set 方法.
-func (v *versionValue) Set(s string) error {
+func (v *VersionValue) Set(s string) error {
 	if s == strRawVersion {
 		*v = VersionRaw
 
@@ -66,12 +67,12 @@ func (v *versionValue) Set(s string) error {
 }
 
 // Type 实现了 pflag.Value 接口中的 Type 方法.
-func (v *versionValue) Type() string {
+func (v *VersionValue) Type() string {
 	return "version"
 }
 
 // VersionVar 定义了一个具有指定名称和用法的标志.
-func VersionVar(p *versionValue, name string, value versionValue, usage string) {
+func VersionVar(p *VersionValue, name string, value VersionValue, usage string) {
 	*p = value
 	pflag.Var(p, name, usage)
 	// `--version` 等价于 `--version=true`
@@ -79,8 +80,8 @@ func VersionVar(p *versionValue, name string, value versionValue, usage string) 
 }
 
 // Version 包装了 VersionVar 函数.
-func Version(name string, value versionValue, usage string) *versionValue {
-	p := new(versionValue)
+func Version(name string, value VersionValue, usage string) *VersionValue {
+	p := new(VersionValue)
 	VersionVar(p, name, value, usage)
 
 	return p

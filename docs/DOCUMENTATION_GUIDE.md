@@ -14,6 +14,8 @@ framework/
 ├── docs/                          # 公开文档目录
 │   ├── quick-start.md            ✅ 提交 - 快速开始指南
 │   ├── architecture.md           ✅ 提交 - 架构设计文档
+│   ├── api-stability.md          ✅ 提交 - API 稳定性与版本策略
+│   ├── migration-0.x-to-1.0.md   ✅ 提交 - 0.x 升级到 1.0 迁移指南
 │   ├── CONFIG_USAGE.md           ✅ 提交 - 配置使用指南
 │   ├── CONFIG_QUICK_REFERENCE.md ✅ 提交 - 配置快速参考
 │   ├── CUSTOM_CONFIG.md          ✅ 提交 - 自定义配置指南
@@ -50,6 +52,8 @@ framework/
 |------|------|----------|
 | quick-start.md | 5分钟上手教程 | 新用户 |
 | architecture.md | 架构设计和最佳实践 | 开发者、架构师 |
+| api-stability.md | API 冻结范围、semver 承诺、弃用政策 | 框架使用方、贡献者 |
+| migration-0.x-to-1.0.md | 从 0.x 升级到 1.0 的破坏性变更与迁移步骤 | 升级用户 |
 | CONFIG_USAGE.md | 配置加载与验证 | 开发者 |
 | CONFIG_QUICK_REFERENCE.md | 常用配置项速查 | 开发者 |
 | CUSTOM_CONFIG.md | 读取自定义配置 | 开发者 |

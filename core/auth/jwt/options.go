@@ -1,7 +1,7 @@
 // Copyright 2022 Innkeeper auroralzdf auroralzdf@gmail.com. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file. The original repo for
-// this file is https://github.com/auroralzdf/biddingAI.
+// this file is https://github.com/AuroraLZDF/go-framework.
 
 package token
 
@@ -17,7 +17,7 @@ const (
 	defaultTokenIDClaim = "uid"
 )
 
-// Options 包含与日志相关的配置项.
+// Options 包含 JWT 签发与校验相关的配置项.
 type Options struct {
 	// 用于存放唯一用户的字段
 	TokenId string

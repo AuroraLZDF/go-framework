@@ -1,7 +1,7 @@
 // Copyright 2022 Innkeeper auroralzdf auroralzdf@gmail.com. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file. The original repo for
-// this file is https://github.com/auroralzdf/biddingAI.
+// this file is https://github.com/AuroraLZDF/go-framework.
 
 package log
 
@@ -19,7 +19,7 @@ import (
 	ctxkey "github.com/AuroraLZDF/go-framework/core/context"
 )
 
-// Logger 定义了 biddingAI 项目的日志接口. 该接口只包含了支持的日志记录方法.
+// Logger 定义了 AuroraLZDF/go-framework 项目的日志接口. 该接口只包含了支持的日志记录方法.
 type Logger interface {
 	Debug(msg string, keysAndValues ...interface{})
 	Info(msg string, keysAndValues ...interface{})
@@ -117,7 +117,8 @@ func Reset() {
 // NewLogger 根据传入的 opts 创建 Logger.
 // 为了保持向后兼容，该接口不返回错误：初始化失败时会输出到 stderr 并回退为 stdout logger.
 // 需要感知初始化失败（如日志目录不可写）请使用 Init.
-func NewLogger(opts *Options) *zapLogger {
+// 返回的 Logger 不会注册为全局 logger；如需全局生效请使用 Init.
+func NewLogger(opts *Options) Logger {
 	logger, _, err := newLogger(opts)
 	if err == nil {
 		return logger
@@ -191,7 +192,7 @@ func newLogger(opts *Options) (*zapLogger, *RotateWriter, error) {
 
 	// 创建构建 zap.Logger 需要的配置
 	cfg := &zap.Config{
-		// 是否在日志中显示调用日志所在的文件和行号，例如：`"caller":"biddingAI/biddingAI.go:75"`
+		// 是否在日志中显示调用日志所在的文件和行号，例如：`"caller":"go-framework/log.go:75"`
 		DisableCaller: opts.DisableCaller,
 		// 是否禁止在 panic 及以上级别打印堆栈信息
 		DisableStacktrace: opts.DisableStacktrace,

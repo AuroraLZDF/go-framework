@@ -332,6 +332,8 @@ v1.Use(middleware.Authn())
 
 - [快速开始指南](docs/quick-start.md)
 - [架构设计说明](docs/architecture.md)
+- [API 稳定性与版本策略](docs/api-stability.md)
+- [从 0.x 迁移到 1.0](docs/migration-0.x-to-1.0.md)
 - [配置使用指南](docs/CONFIG_USAGE.md)
 - [配置快速参考](docs/CONFIG_QUICK_REFERENCE.md)
 - [自定义配置](docs/CUSTOM_CONFIG.md)

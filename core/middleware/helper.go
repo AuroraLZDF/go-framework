@@ -1,7 +1,7 @@
 // Copyright 2022 Innkeeper auroralzdf auroralzdf@gmail.com. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file. The original repo for
-// this file is https://github.com/auroralzdf/biddingAI.
+// this file is https://github.com/AuroraLZDF/go-framework.
 
 package middleware
 
@@ -25,6 +25,8 @@ func NoCache(c *gin.Context) {
 var defaultCORS = CORS()
 
 // Cors 是 CORS 的兼容入口，等价于 CORS().
+//
+// Deprecated: 请直接使用 CORS() 创建中间件（Cors 将在 v2 中移除）.
 func Cors(c *gin.Context) {
 	defaultCORS(c)
 }

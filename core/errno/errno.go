@@ -1,7 +1,7 @@
 // Copyright 2022 Innkeeper auroralzdf auroralzdf@gmail.com. All rights reserved.
 // Use of this source code is governed by a MIT style
 // license that can be found in the LICENSE file. The original repo for
-// this file is https://github.com/auroralzdf/biddingAI.
+// this file is https://github.com/AuroraLZDF/go-framework.
 
 package errno
 
@@ -10,7 +10,7 @@ import (
 	"fmt"
 )
 
-// Errno 定义了 biddingAI 使用的错误类型.
+// Errno 定义了 AuroraLZDF/go-framework 使用的错误类型.
 type Errno struct {
 	HTTP    int
 	Code    int
