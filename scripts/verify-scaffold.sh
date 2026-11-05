@@ -6,12 +6,12 @@
 #   3. go mod tidy / go build / go vet；
 #   4. 启动应用并请求 /health 与 /healthz。
 #
-# 默认要求仓库存 ${FRAMEWORK_TAG}（如 v0.1.3）；本地开发设置 FRAMEWORK_LOCAL=1
+# 默认要求仓库存最新 tag；本地开发设置 FRAMEWORK_LOCAL=1
 # 会向生成项目追加 replace，指向当前仓库。
 set -euo pipefail
 
 FRAMEWORK_MODULE="github.com/AuroraLZDF/go-framework"
-FRAMEWORK_TAG="${FRAMEWORK_TAG:-v0.1.3}"
+FRAMEWORK_TAG="${FRAMEWORK_TAG:-$(git describe --tags --abbrev=0 2>/dev/null || echo v0.2.0)}"
 APP_NAME="verify-test-app"
 APP_PORT="${APP_PORT:-18080}"
 

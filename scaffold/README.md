@@ -56,7 +56,7 @@ my-app/
 ├── logs/                # 日志目录
 ├── config.yaml          # 可直接运行的配置（已生成）
 ├── config.example.yaml  # 配置模板
-├── go.mod              # Go Module 文件（依赖 framework v0.1.3）
+├── go.mod              # Go Module 文件（依赖 framework v0.2.0）
 └── README.md           # 项目说明
 ```
 
@@ -88,6 +88,9 @@ go mod tidy
 vim config.yaml
 ```
 
+配置默认包含 `max-body-bytes: 4194304`（4MB，超限 413）与 `trusted-proxies: []`
+（不信任任何代理；部署在反向代理后按需填入 IP/CIDR）。
+
 ### 5. 运行项目
 
 ```bash
@@ -97,7 +100,13 @@ go run cmd/app/main.go
 ### 6. 测试 API
 
 ```bash
-# 健康检查
+# 存活探针（框架内置，仅进程存活）
+curl http://localhost:8080/healthz
+
+# 就绪探针（框架内置，检查已配置的 MySQL/Redis，未配置标记 skipped）
+curl http://localhost:8080/readyz
+
+# 业务健康检查（生成的路由）
 curl http://localhost:8080/health
 
 # 欢迎页面
@@ -183,7 +192,7 @@ make test
 # 本地模式端到端验证脚手架（FRAMEWORK_LOCAL=1）
 make test-scaffold
 
-# 发布模式验证（要求 v0.1.3 tag 存在）
+# 发布模式验证（要求 v0.2.0 tag 存在）
 make verify-scaffold
 
 # 查看帮助
@@ -206,13 +215,13 @@ A: 可以！修改 `scaffold/internal/generator/generator.go` 中的模板内容
 
 ### Q: 脚手架如何输出版本？
 
-A: `scaffold version`（或 `./bin/scaffold version`）会打印 GitVersion/BuildDate
+A: `scaffold version` 或 `scaffold --version` 都会打印 GitVersion/BuildDate
 等构建信息；Makefile 通过 `-ldflags` 注入这些值。
 
 ### Q: 脚手架支持哪些 Go 版本？
 
-A: 生成的 `go.mod` 使用 Go 1.25.1，并依赖 `github.com/AuroraLZDF/go-framework v0.1.3`。
-版本 v0.1.3 需要先打 tag 并推送，否则 `go mod tidy` 会提示 unknown revision。
+A: 生成的 `go.mod` 使用 Go 1.25.1，并依赖 `github.com/AuroraLZDF/go-framework v0.2.0`。
+版本 v0.2.0 需要先打 tag 并推送，否则 `go mod tidy` 会提示 unknown revision。
 
 ## 📚 相关文档
 

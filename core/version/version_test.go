@@ -11,8 +11,8 @@ import (
 )
 
 func TestGitVersionIsV013(t *testing.T) {
-	if GitVersion != "v0.1.3" {
-		t.Errorf("GitVersion = %q, want v0.1.3", GitVersion)
+	if GitVersion != "v0.2.0" {
+		t.Errorf("GitVersion = %q, want v0.2.0", GitVersion)
 	}
 }
 

@@ -22,6 +22,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Internationalization support
 - Additional middleware (rate limiting, caching, etc.)
 
+## [v0.2.0] - 2026-11-05
+
+### Added
+
+- `server.trusted-proxies`（`[]string`，IP/CIDR）：默认空表示不信任任何代理；
+  配置后才解析 `X-Forwarded-For`，`c.ClientIP()` 与访问日志 client_ip 才会采信。
+  支持环境变量 `FRAMEWORK_SERVER_TRUSTED_PROXIES`（逗号分隔）。
+- `server.max-body-bytes`（默认 `4194304`，即 4MB）：全局请求体上限，超限返回
+  `HTTP 413` 统一响应 `{"code":413,"message":"Request entity too large."}`（content 省略）；
+  负值启动报错，`0` 视为未配置并使用默认值；声明 `Content-Length` 时直接拒绝，
+  未声明长度的 chunked 请求体由 `http.MaxBytesReader` 截断。
+- `GET /readyz` 就绪探针：检查已配置的 MySQL/Redis（各自 Ping，超时 2s），
+  正常 200，失败 503；未配置的依赖标记 `skipped`。`GET /healthz` 仅表示 liveness。
+- 同时显式配置 `server.http-addr` 与 `server.https-addr` 时，HTTP 监听器返回
+  `308 Permanent Redirect` 到 HTTPS（保留 path/query，HTTPS 端口非 443 时 Location 带端口）。
+- `scaffold --version` 标志（`scaffold version` 子命令保留）。
+
+### Changed
+
+- 仅配置 `server.https-addr` 时只启动 HTTPS 监听器，不再隐式监听 `:8080`
+  （相对 v0.1.3 行为变更）；双监听场景下优雅关闭会同时关闭两个监听器。
+
+### Fixed
+
+- HTTP→HTTPS 重定向对 IPv6 字面量 Host 生成非法 Location 的问题（
+  `[::1]` 与 `[::1]:8080` 现在分别得到 `https://[::1]/` 与 `https://[::1]:8443/`）。
+- 413 响应现在也带有 CORS 头（CORS 中间件调整到 BodyLimit 之前）。
+- `redis.addr` 新增格式校验（拒绝 `redis://` scheme、多余冒号、非法端口），
+  避免错误配置导致 Redis 初始化静默降级、吊销名单 fail-open。
+
+### Security
+
+- 默认不信任任何代理，避免伪造 `X-Forwarded-For` 影响限流/审计/客户端 IP。
+- 新增全局请求体大小上限（默认 4MB），降低超大请求导致的资源耗尽风险。
+- HTTP→HTTPS 重定向响应设置 `Cache-Control: no-store`；配置 `0.0.0.0/0`/`::/0`
+  等全地址 CIDR 时启动打印 WARNING。
+- 新增 `middleware.IsRequestTooLarge(err)`，便于业务把 chunked 超限的绑定错误映射为 413。
+
 ## [v0.1.3] - 2026-11-04
 
 ### Added
@@ -185,5 +223,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-**Note**: This project follows Semantic Versioning; check [RELEASE_v0.1.3.md](RELEASE_v0.1.3.md)
+**Note**: This project follows Semantic Versioning; check [RELEASE_v0.2.0.md](RELEASE_v0.2.0.md)
 for upgrade notes. Please report any issues or suggestions via GitHub Issues!

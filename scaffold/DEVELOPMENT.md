@@ -35,7 +35,7 @@ scaffold/
 2. 创建目录：`cmd/app`、`internal/{biz,controller,store,model,service}`、
    `configs`、`sql`、`assets`、`logs`；
 3. 生成 `go.mod`：`go 1.25.1`，依赖 `gin v1.12.0`、`gorm v1.31.1` 与
-   `github.com/AuroraLZDF/go-framework v0.1.3`；
+   `github.com/AuroraLZDF/go-framework v0.2.0`；
 4. 生成 `cmd/app/main.go`：`config.Load("")` → `cfg.Validate()` →
    `server.NewApplication(cfg)` → `RegisterRoutes(func(*gin.Engine, *gorm.DB))`，
    内置 `GET /health`、`GET /` 与 `/api/v1/users` 示例；
@@ -43,7 +43,7 @@ scaffold/
    JWT secret 使用 48 字节示例值，满足 ≥32 字节校验；MySQL/Redis 可留空跳过）；
 6. 生成 `.gitignore` 与项目 `README.md`。
 
-生成的 `go.mod` 使用框架 `v0.1.3`，因此发布前必须先推送同名 tag；本地开发时
+生成的 `go.mod` 使用框架 `v0.2.0`，因此发布前必须先推送同名 tag；本地开发时
 `FRAMEWORK_LOCAL=1` 会向生成项目追加 `replace` 指向当前仓库。
 
 ## 修改生成内容
@@ -71,8 +71,8 @@ make test-scaffold            # 临时目录端到端验证（生成→tidy/buil
 make build
 make test-scaffold
 make release-tag   # 只打印 git tag 指引，不会创建 tag
-git tag -a v0.1.3 -m 'release: v0.1.3'
-git push origin main && git push origin v0.1.3
+git tag -a v0.2.0 -m 'release: v0.2.0'
+git push origin main && git push origin v0.2.0
 ```
 
 ## 设计决策
@@ -87,8 +87,8 @@ git push origin main && git push origin v0.1.3
 ## 已知限制
 
 - 仅支持 `new`（非交互式），暂无 `generate api/model/crud` 等子命令；
-- 生成内容与框架 `v0.1.3` API 绑定，升级框架 API 时需同步修改生成器；
-- 发布前必须推送 `v0.1.3` tag，否则新项目 `go mod tidy` 会失败。
+- 生成内容与框架 `v0.2.0` API 绑定，升级框架 API 时需同步修改生成器；
+- 发布前必须推送 `v0.2.0` tag，否则新项目 `go mod tidy` 会失败。
 
 ## 相关文档
 

@@ -109,7 +109,7 @@ go 1.25.1
 
 require (
 	github.com/gin-gonic/gin v1.12.0
-	github.com/AuroraLZDF/go-framework v0.1.3
+	github.com/AuroraLZDF/go-framework v0.2.0
 	gorm.io/gorm v1.31.1
 )
 `, projectName)
@@ -209,7 +209,13 @@ server:
   read-timeout: 30s
   write-timeout: 60s
   idle-timeout: 120s
-  # 启用 HTTPS 时必须同时提供证书和私钥，否则启动会失败
+  # 请求体大小上限（字节），默认 4MB，超限返回 HTTP 413
+  max-body-bytes: 4194304
+  # 可信代理（IP 或 CIDR），默认不信任任何代理；部署在反向代理之后时按需配置
+  # trusted-proxies:
+  #   - 127.0.0.1
+  # 启用 HTTPS 时必须同时提供证书和私钥，否则启动会失败；
+  # 同时配置 http-addr 时该端口只做 308 重定向
   # https-addr: :8443
   # tls-cert: ./cert/server.crt
   # tls-key: ./cert/server.key

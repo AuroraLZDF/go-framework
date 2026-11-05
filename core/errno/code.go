@@ -15,6 +15,9 @@ var (
 	// ErrPageNotFound 表示路由不匹配错误.
 	ErrPageNotFound = &Errno{HTTP: 404, Code: 404, Message: "Page not found."}
 
+	// ErrRequestEntityTooLarge 表示请求体超过服务器允许的大小.
+	ErrRequestEntityTooLarge = &Errno{HTTP: 413, Code: 413, Message: "Request entity too large."}
+
 	// ErrBind 表示参数绑定错误.
 	ErrBind = &Errno{HTTP: 400, Code: 1, Message: "Error occurred while binding the request body to the struct."}
 
@@ -29,6 +32,9 @@ var (
 
 	// ErrUnauthorized 表示未授权访问.
 	ErrUnauthorized = &Errno{HTTP: 401, Code: 401, Message: "Unauthorized access."}
+
+	// ErrServiceUnavailable 表示服务暂时不可用（如就绪检查发现依赖异常）.
+	ErrServiceUnavailable = &Errno{HTTP: 503, Code: 503, Message: "Service unavailable."}
 
 	// ErrDBQuery 表示数据库查询错误.
 	ErrDBQuery = &Errno{HTTP: 500, Code: 1, Message: "Database query error."}

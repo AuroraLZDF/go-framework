@@ -24,8 +24,8 @@ cd my-awesome-api
 go mod tidy
 ```
 
-> 生成的 `go.mod` 依赖 `github.com/AuroraLZDF/go-framework v0.1.3`。
-> 如果该 tag 尚未发布，会提示 `unknown revision v0.1.3`；请先发布版本，
+> 生成的 `go.mod` 依赖 `github.com/AuroraLZDF/go-framework v0.2.0`。
+> 如果该 tag 尚未发布，会提示 `unknown revision v0.2.0`；请先发布版本，
 > 或在框架仓库内使用 `FRAMEWORK_LOCAL=1 make test-scaffold` 做本地验证。
 
 ### 步骤 4: 按需修改配置
@@ -38,6 +38,7 @@ vim config.yaml
 
 - JWT secret 至少 32 字节（默认示例值已满足）
 - 不需要 MySQL/Redis 时，将 `database.mysql.host`、`redis.addr` 留空即可
+- `max-body-bytes` 默认 4MB（超限 413）；`trusted-proxies` 默认空（不信任任何代理）
 
 ### 步骤 5: 运行应用
 
@@ -50,8 +51,11 @@ go run cmd/app/main.go
 打开另一个终端窗口：
 
 ```bash
-# 存活探针（框架内置）
+# 存活探针（框架内置，仅进程存活）
 curl http://localhost:8080/healthz
+
+# 就绪探针（框架内置，检查已配置的 MySQL/Redis，未配置标记 skipped）
+curl http://localhost:8080/readyz
 
 # 业务健康检查（生成的路由）
 curl http://localhost:8080/health
@@ -114,6 +118,16 @@ engine.GET("/my-route", func(c *gin.Context) {
 3. 在 `internal/store/` 中实现数据访问层
 4. 在 `internal/biz/` 中实现业务逻辑
 5. 在 `internal/controller/` 中创建 HTTP 处理器
+
+### Q: 请求体大小有限制吗？
+
+A: 有，`server.max-body-bytes` 默认 4194304（4MB），超限返回 HTTP 413；
+可在 `config.yaml` 中调整。
+
+### Q: 部署在反向代理后面，如何获取真实客户端 IP？
+
+A: 默认不信任代理；在 `config.yaml` 的 `server.trusted-proxies` 中配置代理
+IP/CIDR（如 `["10.0.0.0/8"]`），之后才会解析 `X-Forwarded-For`。
 
 ### Q: 脚手架版本信息？
 

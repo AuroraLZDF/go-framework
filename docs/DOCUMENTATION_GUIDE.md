@@ -8,7 +8,7 @@
 framework/
 ├── README.md                      ✅ 提交 - 项目主文档
 ├── CHANGELOG.md                   ✅ 提交 - 版本变更记录
-├── RELEASE_v0.1.3.md              ✅ 提交 - 发布说明
+├── RELEASE_v0.2.0.md              ✅ 提交 - 发布说明
 ├── LICENSE                        ✅ 提交 - 开源许可证
 │
 ├── docs/                          # 公开文档目录
@@ -181,11 +181,11 @@ framework/
 
 ### ✅ 已完成
 
-- [x] README.md - 完整的项目介绍（v0.1.3）
-- [x] CHANGELOG.md - 含 v0.1.2 / v0.1.3 变更记录
-- [x] RELEASE_v0.1.3.md - 升级说明与 Breaking Changes
+- [x] README.md - 完整的项目介绍（v0.2.0）
+- [x] CHANGELOG.md - 含 v0.1.2 / v0.2.0 变更记录
+- [x] RELEASE_v0.2.0.md - 升级说明与 Breaking Changes
 - [x] LICENSE - MIT 许可证
-- [x] docs/quick-start.md - 快速开始（Go 1.25+ / framework v0.1.3）
+- [x] docs/quick-start.md - 快速开始（Go 1.25+ / framework v0.2.0）
 - [x] docs/architecture.md - 架构设计
 - [x] docs/CONFIG_USAGE.md、CONFIG_QUICK_REFERENCE.md - 配置文档
 - [x] docs/CUSTOM_CONFIG*.md - 自定义配置（独立 Viper 实例说明）
@@ -203,5 +203,5 @@ framework/
 
 ---
 
-**最后更新**: 2026-11-04  
-**版本**: v0.1.3
+**最后更新**: 2026-11-05  
+**版本**: v0.2.0

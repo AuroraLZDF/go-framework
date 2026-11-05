@@ -71,9 +71,17 @@ func (app *Application) Run(ctx context.Context) error
 
 **运行时默认值**：
 - HTTP 超时：ReadHeader 10s / Read 30s / Write 60s / Idle 120s
-- 请求头大小上限：1MB；TLS 最低版本 1.2
-- 内置 `GET /healthz` 存活探针（仅进程存活，不检查依赖）
-- 收到 SIGINT/SIGTERM 后按 `server.shutdown-timeout`（默认 10s）优雅关闭
+- 请求头大小上限：1MB；请求体上限：4MB；TLS 最低版本 1.2
+- 默认不信任任何代理（`server.trusted-proxies` 为空）：`c.ClientIP()` 与访问日志
+  的 client_ip 直接取 RemoteAddr；配置 IP/CIDR 后才解析 `X-Forwarded-For`
+- 监听器：
+  - 仅配置 `https-addr` 时只监听 HTTPS，不再隐式监听 `:8080`
+  - 同时显式配置 `http-addr` 与 `https-addr` 时，HTTP 监听器返回 308 重定向到
+    HTTPS（保留 path/query；HTTPS 端口非 443 时 Location 带端口）
+- 健康检查：`GET /healthz`（liveness，仅进程存活）与 `GET /readyz`（readiness，
+  检查已配置的 MySQL/Redis，超时 2s；失败 503）
+- 收到 SIGINT/SIGTERM 后按 `server.shutdown-timeout`（默认 10s）优雅关闭；
+  双监听时两个监听器都会被关闭
 
 ### 2. Config (配置管理)
 
@@ -142,6 +150,9 @@ Config
 response.Success(c, data, "ok")
 response.Error(c, errno.ErrTokenInvalid)
 ```
+
+超过 `server.max-body-bytes`（默认 4MB）的请求由框架直接返回 HTTP 413，
+响应体为统一格式：`{"code":413,"message":"Request entity too large."}`（错误响应省略 content 字段）。
 
 ### 7. Log (日志系统)
 

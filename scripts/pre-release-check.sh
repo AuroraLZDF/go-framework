@@ -44,7 +44,7 @@ echo "📌 版本检查"
 TAG="$(git describe --tags --abbrev=0 2>/dev/null || true)"
 if [ -z "$TAG" ]; then
     fail "未找到任何 git tag，无法确定版本"
-    TAG="v0.1.3"
+    TAG="v0.2.0"
 else
     pass "最新 tag: $TAG"
 fi

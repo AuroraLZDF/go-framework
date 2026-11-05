@@ -50,6 +50,14 @@ type ServerConfig struct {
 	WriteTimeout      time.Duration `mapstructure:"write-timeout"`
 	IdleTimeout       time.Duration `mapstructure:"idle-timeout"`
 	MaxHeaderBytes    int           `mapstructure:"max-header-bytes"`
+
+	// MaxBodyBytes 请求体大小上限（字节），默认 4MB，超限返回 HTTP 413
+	MaxBodyBytes int64 `mapstructure:"max-body-bytes"`
+
+	// TrustedProxies 可信代理列表（IP 或 CIDR）。
+	// 默认为空表示不信任任何代理，ClientIP() 直接取 RemoteAddr，避免 X-Forwarded-For 伪造；
+	// 部署在反向代理之后时按需配置代理地址。
+	TrustedProxies []string `mapstructure:"trusted-proxies"`
 }
 
 // DatabaseConfig 数据库配置

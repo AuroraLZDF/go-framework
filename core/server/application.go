@@ -14,8 +14,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -78,6 +80,28 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 
 	app.engine = gin.New()
 
+	// 安全默认：不信任任何代理（ClientIP 直接取 RemoteAddr）；仅在显式配置
+	// server.trusted-proxies 后才采信 X-Forwarded-For / X-Real-IP。
+	trustedProxies := app.config.Server.TrustedProxies
+	if trustedProxies == nil {
+		trustedProxies = []string{}
+	}
+	if err := app.engine.SetTrustedProxies(trustedProxies); err != nil {
+		log.Sync()
+		_ = log.Close()
+		jwtpkg.Reset()
+		return nil, fmt.Errorf("failed to set trusted proxies: %w", err)
+	}
+	for _, proxy := range trustedProxies {
+		if _, network, err := net.ParseCIDR(proxy); err == nil {
+			if ones, bits := network.Mask.Size(); ones == 0 {
+				log.Warning("server.trusted-proxies contains an all-addresses CIDR; "+
+					"any client can spoof X-Forwarded-For",
+					"cidr", proxy, "prefix_len", ones, "bits", bits)
+			}
+		}
+	}
+
 	// 初始化数据库（未配置时跳过）
 	if app.config.Database.MySQL.Host != "" {
 		if err := app.initDatabase(); err != nil {
@@ -122,12 +146,20 @@ func (app *Application) Run(ctx context.Context) error {
 		ctx = context.Background()
 	}
 
-	// 创建 HTTP 服务器
-	httpSrv := app.createHTTPServer()
-
 	useTLS := app.config.Server.HTTPSAddr != ""
+
+	// 主服务器：未启用 HTTPS 时监听 http-addr，启用后监听 https-addr
+	primaryAddr := app.config.Server.HTTPAddr
 	if useTLS {
-		httpSrv.Addr = app.config.Server.HTTPSAddr
+		primaryAddr = app.config.Server.HTTPSAddr
+	}
+	primarySrv := app.createHTTPServer(primaryAddr)
+
+	// 同时显式配置 http-addr 与 https-addr 时，HTTP 端口只负责 308 重定向到 HTTPS
+	var redirectSrv *http.Server
+	if useTLS && app.config.Server.HTTPAddr != "" {
+		redirectSrv = app.createHTTPServer(app.config.Server.HTTPAddr)
+		redirectSrv.Handler = app.httpsRedirectHandler()
 	}
 
 	// 先注册信号监听，再启动 HTTP 服务器，避免启动瞬间收到 SIGTERM 时被默认处理直接退出进程
@@ -136,20 +168,27 @@ func (app *Application) Run(ctx context.Context) error {
 	defer signal.Stop(quit)
 
 	// 启动 HTTP 服务器，启动失败通过 channel 返回，避免在 goroutine 中直接退出进程
-	srvErr := make(chan error, 1)
-	go func() {
-		log.Info("Start to listening the incoming requests", "addr", httpSrv.Addr, "tls", useTLS)
+	srvErr := make(chan error, 2)
+	startServer := func(name string, srv *http.Server, tlsEnabled bool) {
+		go func() {
+			log.Info("Start to listening the incoming requests", "server", name, "addr", srv.Addr, "tls", tlsEnabled)
 
-		var err error
-		if useTLS {
-			err = httpSrv.ListenAndServeTLS(app.config.Server.TLSCert, app.config.Server.TLSKey)
-		} else {
-			err = httpSrv.ListenAndServe()
-		}
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			srvErr <- err
-		}
-	}()
+			var err error
+			if tlsEnabled {
+				err = srv.ListenAndServeTLS(app.config.Server.TLSCert, app.config.Server.TLSKey)
+			} else {
+				err = srv.ListenAndServe()
+			}
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				srvErr <- fmt.Errorf("%s server: %w", name, err)
+			}
+		}()
+	}
+
+	startServer("primary", primarySrv, useTLS)
+	if redirectSrv != nil {
+		startServer("http-redirect", redirectSrv, false)
+	}
 
 	var runErr error
 	select {
@@ -165,16 +204,23 @@ func (app *Application) Run(ctx context.Context) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), app.config.Server.ShutdownTimeout)
 	defer cancel()
 
-	// 优雅关闭 HTTP 服务器；超时后强制关闭，避免进程无法退出
-	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
-		log.Error("HTTP server graceful shutdown failed, forcing close", "err", err)
-		if closeErr := httpSrv.Close(); closeErr != nil {
-			log.Error("Failed to force close HTTP server", "err", closeErr)
+	// 优雅关闭所有监听器；超时后强制关闭，避免进程无法退出
+	shutdownServer := func(name string, srv *http.Server) {
+		if srv == nil {
+			return
 		}
-		if runErr == nil {
-			runErr = err
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Error("HTTP server graceful shutdown failed, forcing close", "server", name, "err", err)
+			if closeErr := srv.Close(); closeErr != nil {
+				log.Error("Failed to force close HTTP server", "server", name, "err", closeErr)
+			}
+			if runErr == nil {
+				runErr = err
+			}
 		}
 	}
+	shutdownServer("primary", primarySrv)
+	shutdownServer("http-redirect", redirectSrv)
 
 	// 在关闭日志前记录最终日志，确保日志文件中保留退出信息
 	log.Info("Server exiting")
@@ -277,13 +323,8 @@ func (app *Application) initDatabase() error {
 func (app *Application) initRedis() error {
 	cfg := app.config.Redis
 
-	port := cfg.Port
-	if port == "" {
-		port = "6379"
-	}
-
 	if _, err := db.InitRedis(&db.RedisOptions{
-		Addr:         net.JoinHostPort(cfg.Addr, port),
+		Addr:         redisServerAddr(cfg),
 		Password:     cfg.Password,
 		DB:           cfg.DB,
 		PoolSize:     cfg.PoolSize,
@@ -314,7 +355,10 @@ func (app *Application) registerMiddlewares() {
 		middleware.RequestID(),
 		// 访问日志依赖 RequestID 中间件，必须注册在 RequestID 之后
 		accessLog(),
+		// CORS 必须在 BodyLimit 之前注册，保证 413 响应同样带有跨域头
 		middleware.CORS(),
+		// 限制请求体大小，确保超大请求不会进入业务处理
+		middleware.BodyLimit(app.config.Server.MaxBodyBytes),
 	)
 
 	// 注册 404 Handler，与业务错误使用统一的响应结构
@@ -322,18 +366,21 @@ func (app *Application) registerMiddlewares() {
 		response.Error(c, errno.ErrPageNotFound)
 	})
 
-	// 注册健康检查
+	// 注册健康检查：/healthz 仅表示进程存活（liveness），不检查外部依赖
 	app.engine.GET("/healthz", func(c *gin.Context) {
 		response.Success(c, gin.H{"status": "ok"}, "ok")
 	})
+
+	// /readyz 检查已配置的依赖（MySQL/Redis），用于负载均衡摘流与发布探针（readiness）
+	app.engine.GET("/readyz", app.readinessHandler)
 }
 
 // createHTTPServer 创建 HTTP 服务器
-func (app *Application) createHTTPServer() *http.Server {
+func (app *Application) createHTTPServer(addr string) *http.Server {
 	srv := app.config.Server
 
 	return &http.Server{
-		Addr:              srv.HTTPAddr,
+		Addr:              addr,
 		Handler:           app.engine,
 		ReadHeaderTimeout: srv.ReadHeaderTimeout,
 		ReadTimeout:       srv.ReadTimeout,
@@ -344,4 +391,124 @@ func (app *Application) createHTTPServer() *http.Server {
 			MinVersion: tls.VersionTLS12,
 		},
 	}
+}
+
+// redisServerAddr 把 redis.addr 规范化为 host:port.
+// 兼容两种写法：addr 只写 host（配合 redis.port），或直接写 host:port.
+func redisServerAddr(cfg config.RedisConfig) string {
+	addr := strings.TrimSpace(cfg.Addr)
+	if addr == "" {
+		return ""
+	}
+	if _, _, err := net.SplitHostPort(addr); err == nil {
+		return addr
+	}
+	// 兼容只写裸 IPv6 字面量的写法（如 "[::1]"），去掉方括号后由 JoinHostPort 重新加
+	addr = strings.TrimPrefix(strings.TrimSuffix(addr, "]"), "[")
+
+	port := cfg.Port
+	if port == "" {
+		port = "6379"
+	}
+
+	return net.JoinHostPort(addr, port)
+}
+
+// httpsRedirectHandler 返回把 HTTP 请求 308 重定向到 HTTPS 的 handler.
+// 保留原始 path/query，并在 HTTPS 端口不是 443 时带上该端口.
+func (app *Application) httpsRedirectHandler() http.Handler {
+	httpsPort := ""
+	if _, port, err := net.SplitHostPort(app.config.Server.HTTPSAddr); err == nil {
+		httpsPort = port
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host == "" {
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
+		}
+
+		// 取 Host 中的 hostname 部分（可能带端口或为 [IPv6] 字面量）
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		// 去掉 IPv6 字面量可能残留的方括号，拼 Location 时再统一处理
+		host = strings.TrimPrefix(strings.TrimSuffix(host, "]"), "[")
+
+		// 308 默认可缓存；避免共享缓存把某个 Host 的重定向结果缓存后投毒
+		w.Header().Set("Cache-Control", "no-store")
+
+		locationHost := host
+		if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
+			// IPv6 字面量：Location 中必须带方括号
+			if httpsPort != "" && httpsPort != "443" {
+				locationHost = net.JoinHostPort(host, httpsPort)
+			} else {
+				locationHost = "[" + host + "]"
+			}
+		} else if httpsPort != "" && httpsPort != "443" {
+			locationHost = host + ":" + httpsPort
+		}
+
+		http.Redirect(w, r, "https://"+locationHost+r.URL.RequestURI(), http.StatusPermanentRedirect)
+	})
+}
+
+// readinessHandler 检查已配置的外部依赖是否可用，失败返回 503.
+func (app *Application) readinessHandler(c *gin.Context) {
+	checks := gin.H{}
+	healthy := true
+
+	// MySQL：只有配置了 host 才会初始化，未配置视为跳过
+	if app.config.Database.MySQL.Host != "" {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+		if app.db == nil {
+			checks["mysql"] = "unavailable"
+			healthy = false
+		} else if sqlDB, err := app.db.DB(); err != nil {
+			log.Error("Readiness check failed", "dependency", "mysql", "err", err)
+			checks["mysql"] = "unavailable"
+			healthy = false
+		} else if err := sqlDB.PingContext(ctx); err != nil {
+			log.Error("Readiness check failed", "dependency", "mysql", "err", err)
+			checks["mysql"] = "unavailable"
+			healthy = false
+		} else {
+			checks["mysql"] = "ok"
+		}
+	} else {
+		checks["mysql"] = "skipped"
+	}
+
+	// Redis：只有配置了 addr 才会初始化，未配置视为跳过（独立超时，避免 MySQL 慢拖累判断）
+	if app.config.Redis.Addr != "" {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+		client := db.GetRedis()
+		if client == nil {
+			checks["redis"] = "unavailable"
+			healthy = false
+		} else if err := client.Ping(ctx).Err(); err != nil {
+			log.Error("Readiness check failed", "dependency", "redis", "err", err)
+			checks["redis"] = "unavailable"
+			healthy = false
+		} else {
+			checks["redis"] = "ok"
+		}
+	} else {
+		checks["redis"] = "skipped"
+	}
+
+	if !healthy {
+		c.JSON(http.StatusServiceUnavailable, response.Response{
+			Code:    errno.ErrServiceUnavailable.Code,
+			Message: errno.ErrServiceUnavailable.Message,
+			Content: checks,
+		})
+		return
+	}
+
+	response.Success(c, gin.H{"status": "ok", "checks": checks}, "ok")
 }

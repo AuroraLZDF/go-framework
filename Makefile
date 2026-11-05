@@ -39,16 +39,16 @@ test: ## 运行全部单元测试
 test-scaffold: build ## 本地模式端到端验证脚手架（FRAMEWORK_LOCAL=1）
 	@FRAMEWORK_LOCAL=1 ./scripts/verify-scaffold.sh
 
-verify-scaffold: build ## 发布模式验证脚手架（要求 v0.1.3 tag 存在）
+verify-scaffold: build ## 发布模式验证脚手架（要求最新 tag 存在）
 	@./scripts/verify-scaffold.sh
 
 release-tag: ## 打印发布打 tag 指引（不会实际创建 tag）
 	@echo "Release $(VERSION)"
-	@echo "  1. 确认 CHANGELOG.md / RELEASE_v0.1.3.md 已更新"
-	@echo "  2. git tag -a v0.1.3 -m 'release: v0.1.3'"
+	@echo "  1. 确认 CHANGELOG.md / RELEASE_v0.2.0.md 已更新"
+	@echo "  2. git tag -a v0.2.0 -m 'release: v0.2.0'"
 	@echo "  3. git push origin main"
-	@echo "  4. git push origin v0.1.3"
-	@echo "打 tag 后，生成的脚手架项目才能通过 go mod tidy 拉取 v0.1.3。"
+	@echo "  4. git push origin v0.2.0"
+	@echo "打 tag 后，生成的脚手架项目才能通过 go mod tidy 拉取 v0.2.0。"
 
 help: ## 显示帮助
 	@echo "Usage: make <target>"

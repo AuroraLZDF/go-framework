@@ -2,7 +2,7 @@
 
 一个基于 Gin 的高性能、可扩展的 Go Web 开发框架，提供完整的基础设施组件和最佳实践。
 
-[![Release](https://img.shields.io/badge/release-v0.1.3-blue.svg)](https://github.com/AuroraLZDF/go-framework/releases/tag/v0.1.3)
+[![Release](https://img.shields.io/badge/release-v0.2.0-blue.svg)](https://github.com/AuroraLZDF/go-framework/releases/tag/v0.2.0)
 [![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://go.dev/dl/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/AuroraLZDF/go-framework)](https://goreportcard.com/report/github.com/AuroraLZDF/go-framework)
@@ -14,6 +14,8 @@
 - ✅ **灵活配置** - 基于 Viper 的配置管理，支持环境变量和自定义配置
 - ✅ **JWT 认证** - 完整的 Token 签发、验证和黑名单机制
 - ✅ **优雅关闭** - 支持信号处理和超时控制的服务关闭
+- ✅ **健康检查** - 内置 `/healthz` 存活探针与 `/readyz` 就绪探针（MySQL/Redis）
+- ✅ **安全默认** - 默认不信任任何代理、请求体上限 4MB、可选 HTTP→HTTPS 强制重定向
 - ✅ **统一响应** - 标准化的 JSON 响应格式和错误处理
 - ✅ **易于扩展** - 接口抽象设计，轻松替换实现
 
@@ -50,7 +52,7 @@ go run cmd/app/main.go
 #### 安装
 
 ```bash
-go get github.com/AuroraLZDF/go-framework@v0.1.3
+go get github.com/AuroraLZDF/go-framework@v0.2.0
 ```
 
 ### 最小示例
@@ -102,6 +104,8 @@ server:
   write-timeout: 60s
   idle-timeout: 120s
   max-header-bytes: 1048576
+  max-body-bytes: 4194304        # 请求体上限 4MB，声明长度超限返回 413
+  trusted-proxies: []            # 默认不信任任何代理；按需填 IP/CIDR
 
 database:
   mysql:
@@ -122,6 +126,11 @@ log:
   format: json
   dir: logs
 ```
+
+> HTTPS：仅配置 `https-addr` 时只监听 HTTPS，不再隐式监听 `:8080`；同时显式配置
+> `http-addr` 与 `https-addr` 时，HTTP 监听器返回 `308` 永久重定向到 HTTPS（保留
+> path/query）。`trusted-proxies` 为空时不会采信 `X-Forwarded-For`，
+> `c.ClientIP()` 与访问日志直接使用 RemoteAddr。
 
 ## 📁 项目结构
 
@@ -216,6 +225,9 @@ app.RegisterRoutes(func(engine *gin.Engine, db *gorm.DB) {
 // 启动服务
 app.Run(context.Background())
 ```
+
+框架自动注册两个探针：`GET /healthz`（liveness，仅进程存活）与 `GET /readyz`
+（检查已配置的 MySQL/Redis，单次检查超时 2s；正常 200，失败 503）。
 
 ### 3. JWT 认证
 

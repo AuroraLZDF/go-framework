@@ -87,6 +87,8 @@ server:
   write-timeout: 60s
   idle-timeout: 120s
   max-header-bytes: 1048576      # 1MB
+  max-body-bytes: 4194304        # 请求体上限 4MB，声明长度超限返回 HTTP 413
+  trusted-proxies: []            # 可信代理 IP/CIDR；空 = 不信任任何代理
 
 # 数据库配置
 database:
@@ -166,6 +168,10 @@ readTimeout := cfg.Server.ReadTimeout
 writeTimeout := cfg.Server.WriteTimeout
 idleTimeout := cfg.Server.IdleTimeout
 maxHeaderBytes := cfg.Server.MaxHeaderBytes
+
+// 请求体上限（字节）与可信代理列表
+maxBodyBytes := cfg.Server.MaxBodyBytes
+trustedProxies := cfg.Server.TrustedProxies  // []string，默认空
 ```
 
 ### 访问数据库配置
@@ -229,6 +235,7 @@ export FRAMEWORK_APP_NAME=my-app
 export FRAMEWORK_SERVER_HTTP_ADDR=:3000
 export FRAMEWORK_DATABASE_MYSQL_HOST=192.168.1.100:3306
 export FRAMEWORK_JWT_SECRET=change-me-please-use-a-random-32byte-secret
+export FRAMEWORK_SERVER_TRUSTED_PROXIES=10.0.0.0/8,192.168.0.0/16
 
 # 运行应用
 ./my-app
@@ -245,6 +252,7 @@ export FRAMEWORK_JWT_SECRET=change-me-please-use-a-random-32byte-secret
 例如：
 - `app.name` → `FRAMEWORK_APP_NAME`
 - `server.http-addr` → `FRAMEWORK_SERVER_HTTP_ADDR`
+- `server.trusted-proxies` → `FRAMEWORK_SERVER_TRUSTED_PROXIES`（逗号分隔）
 - `database.mysql.host` → `FRAMEWORK_DATABASE_MYSQL_HOST`
 
 ---
@@ -330,7 +338,11 @@ log.Println("Configuration is valid")
 - ✅ 配置了 `database.mysql.host` 时，username/database 不能为空
 - ✅ 配置了 `server.https-addr` 时，必须同时提供 tls-cert 与 tls-key
 - ✅ HTTP 超时与 max-header-bytes 必须为正数
-- ✅ Server HTTPAddr 默认 `:8080`（由 applyDefaults 填充）
+- ✅ `server.max-body-bytes` 必须为正数（0 视为未配置，默认 4MB）
+- ✅ `server.trusted-proxies` 每项必须是合法 IP 或 CIDR（自动去空白、丢弃空项）
+- ✅ `redis.addr` 支持空、`host`、`host:port`、裸 IPv6、`[IPv6]`、`[IPv6]:port`；
+  拒绝带 scheme（如 `redis://`）或多余冒号的写法
+- ✅ Server HTTPAddr 默认 `:8080`（由 applyDefaults 填充；仅配置 https-addr 时不再补 HTTP 地址）
 
 ---
 
@@ -363,6 +375,53 @@ if err := validateCustomConfig(cfg); err != nil {
     log.Fatalf("Custom validation failed: %v", err)
 }
 ```
+
+---
+
+## 🔐 HTTP/HTTPS 监听与健康检查
+
+### 监听语义
+
+- **仅配置 `server.https-addr`**：只启动 HTTPS 监听器，不再隐式监听 `:8080`
+  （相对 v0.1.3 之前的行为变更）。
+- **同时显式配置 `server.http-addr` 与 `server.https-addr`**：HTTP 监听器对请求返回
+  `308 Permanent Redirect` 到 HTTPS，保留 path/query；HTTPS 端口不是 443 时
+  Location 中带该端口。优雅关闭同时覆盖两个监听器。
+- **`server.trusted-proxies` 为空（默认）**：不信任任何代理，`c.ClientIP()` 与访问日志
+  的 client_ip 直接取 RemoteAddr；配置 IP/CIDR 后才解析 `X-Forwarded-For`。
+  每项会去除首尾空白；配置 `0.0.0.0/0`、`::/0` 等全地址范围时启动会打印 WARNING
+  （等价于信任任意来源的 XFF，仅应在明确知道后果时使用）。
+- **重定向的 Host 处理**：HTTP→HTTPS 重定向沿用请求的 Host 拼接 Location。
+  部署在反向代理之后时，应由代理清洗 Host 头；框架为 308 响应设置
+  `Cache-Control: no-store`，降低共享缓存被投毒的风险。
+- **`server.max-body-bytes`**：全局请求体上限（默认 4194304 = 4MB）。请求声明
+  `Content-Length` 且超限时返回 `HTTP 413` 与统一响应
+  `{"code":413,"message":"Request entity too large."}`（错误响应省略 content）；
+  未声明长度的 chunked 请求体由 `http.MaxBytesReader` 截断，超出部分读取报错，
+  业务绑定通常返回 400，但内存占用同样被限制在上限内。
+
+### 健康检查
+
+| 端点 | 用途 | 行为 |
+|------|------|------|
+| `GET /healthz` | liveness | 仅确认进程存活，不检查依赖，返回 200 |
+| `GET /readyz` | readiness | 检查已配置的 MySQL/Redis（各自 Ping，超时 2s）|
+
+`/readyz` 正常示例：
+
+```json
+{
+  "code": 200,
+  "message": "ok",
+  "content": {
+    "status": "ok",
+    "checks": {"mysql": "ok", "redis": "skipped"}
+  }
+}
+```
+
+未配置的依赖标记为 `skipped`；任一依赖失败返回 `HTTP 503` 与统一响应
+`{"code":503,"message":"Service unavailable.","content":{...}}`。
 
 ---
 

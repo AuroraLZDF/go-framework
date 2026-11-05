@@ -43,6 +43,8 @@ cfg.Server.ReadTimeout       // 读超时（默认 30s）
 cfg.Server.WriteTimeout      // 写超时（默认 60s）
 cfg.Server.IdleTimeout       // 空闲超时（默认 120s）
 cfg.Server.MaxHeaderBytes    // 请求头大小上限（默认 1MB）
+cfg.Server.MaxBodyBytes      // 请求体上限（默认 4MB，超限 413）
+cfg.Server.TrustedProxies    // 可信代理 []string（默认空 = 不信任任何代理）
 
 // MySQL
 cfg.Database.MySQL.Host               // 主机地址
@@ -81,7 +83,8 @@ cfg.Log.Rotation          // 轮转配置（*log.RotateConfig）
 
 > 校验规则：`app.mode` ∈ debug/release/test；`log.format` ∈ console/json；
 > JWT secret 至少 32 字节；MySQL 仅在配置了 `host` 时校验用户名/库名；
-> HTTPS 只配置地址时要求同时提供证书与私钥。
+> HTTPS 只配置地址时要求同时提供证书与私钥；`max-body-bytes` 必须为正数；
+> `trusted-proxies` 每项必须是合法 IP 或 CIDR。
 
 ---
 
@@ -106,6 +109,7 @@ if err := cfg.Validate(); err != nil {
 # 设置环境变量
 export FRAMEWORK_DATABASE_MYSQL_PASSWORD=secret
 export FRAMEWORK_JWT_SECRET=change-me-please-use-a-random-32byte-secret
+export FRAMEWORK_SERVER_TRUSTED_PROXIES=10.0.0.0/8,192.168.0.0/16
 
 # 运行时自动覆盖配置文件中的值
 ```
@@ -176,6 +180,11 @@ func main() {
 - ✅ 无配置文件时可用环境变量 + 默认值启动（`Load("")`）
 - ✅ 内置基本验证（含 JWT secret ≥32 字节）
 - ✅ 可以自定义验证逻辑
+- ✅ 仅配置 `https-addr` 时只监听 HTTPS，不再隐式监听 `:8080`；同时配置 `http-addr`
+  与 `https-addr` 时，HTTP 监听器返回 308 重定向到 HTTPS
+- ✅ 健康检查：`/healthz`（liveness）与 `/readyz`（检查 MySQL/Redis，超时 2s，失败 503）
+- ✅ 请求体默认上限 4MB（`server.max-body-bytes`），声明 Content-Length 超限返回 413；
+  未知长度的 chunked 请求体由 `http.MaxBytesReader` 截断（可用 `middleware.IsRequestTooLarge` 判定）
 - ❌ 不支持热重载（需要重启应用）
 
 ---

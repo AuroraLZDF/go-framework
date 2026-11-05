@@ -18,7 +18,7 @@ mkdir my-app && cd my-app
 go mod init my-app
 
 # 添加 Framework 依赖
-go get github.com/AuroraLZDF/go-framework@v0.1.3
+go get github.com/AuroraLZDF/go-framework@v0.2.0
 ```
 
 ## Step 2: 创建配置文件
@@ -38,6 +38,8 @@ server:
   write-timeout: 60s
   idle-timeout: 120s
   max-header-bytes: 1048576
+  max-body-bytes: 4194304  # 请求体上限 4MB，超限返回 413
+  trusted-proxies: []      # 默认不信任任何代理；按需填 IP/CIDR
   shutdown-timeout: 10s
 
 database:
@@ -136,8 +138,10 @@ func main() {
 }
 ```
 
-> 框架已内置 `GET /healthz` 存活探针；需要鉴权的路由请显式挂载
-> `middleware.Authn()`，请求头格式为 `Authorization: Bearer <token>`。
+> 框架已内置 `GET /healthz`（存活探针）与 `GET /readyz`（就绪探针，检查已配置的
+> MySQL/Redis，超时 2s）；请求体默认上限 4MB（`server.max-body-bytes`），声明
+> Content-Length 超限时返回 413。需要鉴权的路由请显式挂载 `middleware.Authn()`，请求头格式为
+> `Authorization: Bearer <token>`。
 
 ## Step 4: 运行应用
 
@@ -159,8 +163,11 @@ go build -o my-app
 ## Step 5: 测试 API
 
 ```bash
-# 存活探针（框架内置）
+# 存活探针（框架内置，仅进程存活）
 curl http://localhost:8080/healthz
+
+# 就绪探针（框架内置，检查 MySQL/Redis；未配置的依赖标记 skipped）
+curl http://localhost:8080/readyz
 
 # Hello World
 curl http://localhost:8080/hello?name=Framework
@@ -200,10 +207,29 @@ server:
   tls-key: ./cert/server.key
 ```
 
+- 仅配置 `https-addr` 时只监听 HTTPS，**不再隐式监听 `:8080`**；
+- 如需保留 HTTP 入口，同时显式配置 `http-addr`：此时 HTTP 监听器返回
+  `308` 永久重定向到 HTTPS（保留 path/query，非 443 端口会带在 Location 中）。
+
 ### Q: JWT 报错 "jwt secret must be at least 32 bytes"？
 
 A: `config.Validate()` 要求 JWT secret 至少 32 字节；可用
 `openssl rand -base64 32` 生成（结果为 44 个字符）。
+
+### Q: 请求体过大返回什么？
+
+A: 全局请求体上限由 `server.max-body-bytes` 控制（默认 4194304 = 4MB）。请求声明
+`Content-Length` 且超限时返回 `HTTP 413` 与统一响应
+`{"code":413,"message":"Request entity too large."}`；未声明长度的 chunked 请求体由
+`http.MaxBytesReader` 截断，绑定错误可用 `middleware.IsRequestTooLarge(err)` 判断后
+映射为 413。
+
+### Q: 如何让 `c.ClientIP()` 识别反向代理传来的真实 IP？
+
+A: 默认 `server.trusted-proxies: []` 不信任任何代理；请按实际代理网段配置
+IP/CIDR（如 `["10.0.0.0/8"]`，或环境变量
+`FRAMEWORK_SERVER_TRUSTED_PROXIES=10.0.0.0/8`），配置后才会解析
+`X-Forwarded-For`。
 
 ### Q: 日志文件在哪里？
 

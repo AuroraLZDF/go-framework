@@ -7,8 +7,10 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,6 +39,8 @@ var envKeys = []string{
 	"server.write-timeout",
 	"server.idle-timeout",
 	"server.max-header-bytes",
+	"server.max-body-bytes",
+	"server.trusted-proxies",
 	"database.mysql.host",
 	"database.mysql.username",
 	"database.mysql.password",
@@ -131,7 +135,9 @@ func (c *Config) applyDefaults() {
 	if c.App.Mode == "" {
 		c.App.Mode = "release"
 	}
-	if c.Server.HTTPAddr == "" {
+	// 仅当没有启用 HTTPS 时默认监听 :8080；启用 HTTPS 后 http-addr 由用户显式配置，
+	// 用于把 HTTP 请求重定向到 HTTPS（配置为空则不监听明文 HTTP 端口）。
+	if c.Server.HTTPAddr == "" && c.Server.HTTPSAddr == "" {
 		c.Server.HTTPAddr = ":8080"
 	}
 	if c.Server.ShutdownTimeout <= 0 {
@@ -151,6 +157,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Server.MaxHeaderBytes == 0 {
 		c.Server.MaxHeaderBytes = 1 << 20 // 1MB
+	}
+	if c.Server.MaxBodyBytes == 0 {
+		c.Server.MaxBodyBytes = 4 << 20 // 4MB
 	}
 	if c.Redis.PoolSize == 0 {
 		c.Redis.PoolSize = 10
@@ -239,6 +248,55 @@ func (c *Config) Validate() error {
 	}
 	if c.Server.MaxHeaderBytes <= 0 {
 		return fmt.Errorf("server.max-header-bytes must be positive, got %d", c.Server.MaxHeaderBytes)
+	}
+
+	// 请求体上限必须为正数，避免所有请求被拒绝
+	if c.Server.MaxBodyBytes <= 0 {
+		return fmt.Errorf("server.max-body-bytes must be positive, got %d", c.Server.MaxBodyBytes)
+	}
+
+	// 可信代理必须是合法 IP 或 CIDR，避免非法配置在启动后才暴露。
+	// 同时就地规范化（去空白、丢弃空项），确保环境变量 "a, b" 这类写法
+	// 传给 gin.SetTrustedProxies 的值同样合法。
+	if c.Server.TrustedProxies != nil {
+		normalized := make([]string, 0, len(c.Server.TrustedProxies))
+		for _, proxy := range c.Server.TrustedProxies {
+			proxy = strings.TrimSpace(proxy)
+			if proxy == "" {
+				continue
+			}
+			if net.ParseIP(proxy) == nil {
+				if _, _, err := net.ParseCIDR(proxy); err != nil {
+					return fmt.Errorf("invalid server.trusted-proxies entry %q: %w", proxy, err)
+				}
+			}
+			normalized = append(normalized, proxy)
+		}
+		c.Server.TrustedProxies = normalized
+	}
+
+	// Redis 地址格式校验：支持空、host、host:port、裸 IPv6、[IPv6]、[IPv6]:port；
+	// 拒绝带 scheme（如 redis://）或多余冒号的写法，避免初始化时静默降级为 fail-open。
+	if addr := strings.TrimSpace(c.Redis.Addr); addr != "" {
+		if host, port, err := net.SplitHostPort(addr); err == nil {
+			if host == "" {
+				return fmt.Errorf("invalid redis.addr %q: host is empty", addr)
+			}
+			portNum, convErr := strconv.Atoi(port)
+			if convErr != nil || portNum < 1 || portNum > 65535 {
+				return fmt.Errorf("invalid redis.addr %q: port must be 1-65535", addr)
+			}
+		} else if net.ParseIP(addr) != nil {
+			// 裸 IP（含 IPv6 字面量），合法
+		} else if strings.HasPrefix(addr, "[") && strings.HasSuffix(addr, "]") &&
+			net.ParseIP(strings.TrimSuffix(strings.TrimPrefix(addr, "["), "]")) != nil {
+			// [IPv6] 字面量，合法
+		} else if strings.Contains(addr, "://") {
+			return fmt.Errorf("invalid redis.addr %q: scheme is not supported, use host:port", addr)
+		} else if strings.Contains(addr, ":") {
+			return fmt.Errorf("invalid redis.addr %q: expected host or host:port", addr)
+		}
+		// 其余为纯主机名，合法
 	}
 
 	// Redis 连接池与超时不允许为负数（0 已在 applyDefaults 中填默认值）

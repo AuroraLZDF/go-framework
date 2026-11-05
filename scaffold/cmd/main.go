@@ -8,27 +8,35 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/pflag"
+
 	"github.com/AuroraLZDF/go-framework/core/version"
+	"github.com/AuroraLZDF/go-framework/core/version/verflag"
 	"github.com/AuroraLZDF/go-framework/scaffold/internal/generator"
 )
 
 func main() {
-	if len(os.Args) < 2 {
+	// 解析全局 flag：--version 由 verflag 注册，打印版本后直接退出
+	pflag.Parse()
+	verflag.PrintAndExitIfRequested()
+
+	args := pflag.Args()
+	if len(args) < 1 {
 		printUsage()
 		os.Exit(1)
 	}
 
-	command := os.Args[1]
+	command := args[0]
 
 	switch command {
 	case "version":
 		printVersion()
 	case "new":
-		if len(os.Args) < 3 {
+		if len(args) < 2 {
 			printUsage()
 			os.Exit(1)
 		}
-		projectName := os.Args[2]
+		projectName := args[1]
 		if err := generator.NewProject(projectName); err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating project: %v\n", err)
 			os.Exit(1)
@@ -61,6 +69,7 @@ func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  scaffold new <project-name>  Create a new project")
 	fmt.Println("  scaffold version             Print version information")
+	fmt.Println("  scaffold --version           Print version information and quit")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  scaffold new my-app")
