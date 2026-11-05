@@ -83,6 +83,31 @@ func TestNewProjectGeneratesFiles(t *testing.T) {
 	}
 }
 
+func TestNewProjectWithPath(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	path := filepath.Join("nested", "dir", "go-apis")
+	if err := NewProject(path); err != nil {
+		t.Fatalf("NewProject(路径) error = %v", err)
+	}
+
+	gomod, err := os.ReadFile(filepath.Join(path, "go.mod"))
+	if err != nil {
+		t.Fatalf("read go.mod: %v", err)
+	}
+	if !strings.Contains(string(gomod), "module go-apis") {
+		t.Errorf("go.mod module 应取路径最后一段:\n%s", gomod)
+	}
+}
+
+func TestNewProjectRejectsInvalidPathName(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	if err := NewProject(filepath.Join("nested", "1bad")); err == nil {
+		t.Fatal("NewProject(末段非法) 应返回错误")
+	}
+}
+
 func TestNewProjectRejectsExistingDirectory(t *testing.T) {
 	t.Chdir(t.TempDir())
 	if err := os.Mkdir("exists-app", 0755); err != nil {
@@ -100,7 +125,7 @@ func TestNewProjectRollbackOnFailure(t *testing.T) {
 	prevSteps := projectSteps
 	projectSteps = append(append([]generateStep{}, prevSteps...), generateStep{
 		name: "always-fail",
-		run:  func(string) error { return errors.New("injected failure") },
+		run:  func(dir, name string) error { return errors.New("injected failure") },
 	})
 	t.Cleanup(func() { projectSteps = prevSteps })
 

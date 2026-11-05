@@ -16,9 +16,10 @@ import (
 var projectNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 
 // generateStep 表示项目生成过程中的一个步骤.
+// dir 为项目目录（可为路径），name 为校验过的项目名（用于模板内容）.
 type generateStep struct {
 	name string
-	run  func(projectName string) error
+	run  func(dir, name string) error
 }
 
 // projectSteps 按顺序执行；任一步失败会回滚整个项目目录.
@@ -32,26 +33,29 @@ var projectSteps = []generateStep{
 }
 
 // NewProject 创建新项目.
+// projectPath 可以是纯项目名（当前目录下创建），也可以是相对/绝对路径.
+// 项目名取路径最后一段，用于 go.mod module、配置和 README 等模板内容.
 // 生成过程中任一步失败都会删除已创建的项目目录，避免留下半成品.
-func NewProject(projectName string) error {
-	// 验证项目名称
-	if err := validateProjectName(projectName); err != nil {
+func NewProject(projectPath string) error {
+	// 验证项目名称（路径最后一段）
+	name := filepath.Base(filepath.Clean(projectPath))
+	if err := validateProjectName(name); err != nil {
 		return err
 	}
 
 	// 检查目录是否已存在
-	if _, err := os.Stat(projectName); err == nil {
-		return fmt.Errorf("directory '%s' already exists", projectName)
+	if _, err := os.Stat(projectPath); err == nil {
+		return fmt.Errorf("directory '%s' already exists", projectPath)
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to check directory '%s': %w", projectName, err)
+		return fmt.Errorf("failed to check directory '%s': %w", projectPath, err)
 	}
 
-	fmt.Printf("Creating project: %s\n", projectName)
+	fmt.Printf("Creating project: %s\n", projectPath)
 
 	for _, step := range projectSteps {
-		if err := step.run(projectName); err != nil {
+		if err := step.run(projectPath, name); err != nil {
 			// 失败回滚：清理已经创建的文件/目录
-			if rmErr := os.RemoveAll(projectName); rmErr != nil {
+			if rmErr := os.RemoveAll(projectPath); rmErr != nil {
 				return fmt.Errorf("failed to generate %s: %w (rollback failed: %v)", step.name, err, rmErr)
 			}
 
@@ -77,18 +81,18 @@ func validateProjectName(name string) error {
 }
 
 // createProjectStructure 创建项目目录结构
-func createProjectStructure(projectName string) error {
+func createProjectStructure(dir, name string) error {
 	dirs := []string{
-		filepath.Join(projectName, "cmd", "app"),
-		filepath.Join(projectName, "internal", "biz"),
-		filepath.Join(projectName, "internal", "controller"),
-		filepath.Join(projectName, "internal", "store"),
-		filepath.Join(projectName, "internal", "model"),
-		filepath.Join(projectName, "internal", "service"),
-		filepath.Join(projectName, "configs"),
-		filepath.Join(projectName, "sql"),
-		filepath.Join(projectName, "assets"),
-		filepath.Join(projectName, "logs"),
+		filepath.Join(dir, "cmd", "app"),
+		filepath.Join(dir, "internal", "biz"),
+		filepath.Join(dir, "internal", "controller"),
+		filepath.Join(dir, "internal", "store"),
+		filepath.Join(dir, "internal", "model"),
+		filepath.Join(dir, "internal", "service"),
+		filepath.Join(dir, "configs"),
+		filepath.Join(dir, "sql"),
+		filepath.Join(dir, "assets"),
+		filepath.Join(dir, "logs"),
 	}
 
 	for _, dir := range dirs {
@@ -102,7 +106,7 @@ func createProjectStructure(projectName string) error {
 
 // generateGoMod 生成 go.mod 文件
 // 版本需与脚手架模板使用的 API 保持一致（RouteRegisterFunc、jwt.blacklist-prefix 等）
-func generateGoMod(projectName string) error {
+func generateGoMod(dir, name string) error {
 	content := fmt.Sprintf(`module %s
 
 go 1.25.1
@@ -112,13 +116,13 @@ require (
 	github.com/AuroraLZDF/go-framework v0.2.0
 	gorm.io/gorm v1.31.1
 )
-`, projectName)
+`, name)
 
-	return writeFile(filepath.Join(projectName, "go.mod"), content)
+	return writeFile(filepath.Join(dir, "go.mod"), content)
 }
 
 // generateMainFile 生成主程序文件
-func generateMainFile(projectName string) error {
+func generateMainFile(dir, name string) error {
 	content := `package main
 
 import (
@@ -162,7 +166,7 @@ func main() {
 		// Hello World
 		engine.GET("/", func(c *gin.Context) {
 			response.Success(c, gin.H{
-				"message": "Welcome to ` + projectName + `!",
+				"message": "Welcome to ` + name + `!",
 				"version": cfg.App.Version,
 			}, "ok")
 		})
@@ -186,17 +190,17 @@ func main() {
 }
 `
 
-	return writeFile(filepath.Join(projectName, "cmd", "app", "main.go"), content)
+	return writeFile(filepath.Join(dir, "cmd", "app", "main.go"), content)
 }
 
 // generateConfigFile 生成配置文件
-func generateConfigFile(projectName string) error {
+func generateConfigFile(dir, name string) error {
 	content := `# Application Configuration
 # 所有配置项均可用 FRAMEWORK_ 前缀的环境变量覆盖，
 # 例如 FRAMEWORK_APP_MODE=release、FRAMEWORK_LOG_LEVEL=debug
 
 app:
-  name: ` + projectName + `
+  name: ` + name + `
   version: 1.0.0
   mode: debug  # debug, release, test
 
@@ -226,7 +230,7 @@ database:
     host: ""
     username: root
     password: your_password
-    database: ` + projectName + `_db
+    database: ` + name + `_db
     max-idle-connections: 10
     max-open-connections: 100
     max-connection-life-time: 30s
@@ -260,15 +264,15 @@ log:
 `
 
 	// config.example.yaml 作为模板保留，config.yaml 直接可用
-	if err := writeFile(filepath.Join(projectName, "config.example.yaml"), content); err != nil {
+	if err := writeFile(filepath.Join(dir, "config.example.yaml"), content); err != nil {
 		return err
 	}
 
-	return writeFile(filepath.Join(projectName, "config.yaml"), content)
+	return writeFile(filepath.Join(dir, "config.yaml"), content)
 }
 
 // generateGitignore 生成 .gitignore 文件
-func generateGitignore(projectName string) error {
+func generateGitignore(dir, name string) error {
 	content := `# Binaries
 *.exe
 *.exe~
@@ -316,12 +320,12 @@ tmp/
 .env.local
 `
 
-	return writeFile(filepath.Join(projectName, ".gitignore"), content)
+	return writeFile(filepath.Join(dir, ".gitignore"), content)
 }
 
 // generateReadme 生成 README 文件
-func generateReadme(projectName string) error {
-	content := `# ` + projectName + `
+func generateReadme(dir, name string) error {
+	content := `# ` + name + `
 
 A web application built with Go Framework.
 
@@ -352,7 +356,7 @@ A web application built with Go Framework.
 ## Project Structure
 
 ` + "```" + `
-` + projectName + `/
+` + name + `/
 ├── cmd/app/              # Application entry point
 ├── internal/
 │   ├── biz/             # Business logic layer
@@ -377,7 +381,7 @@ A web application built with Go Framework.
 MIT License
 `
 
-	return writeFile(filepath.Join(projectName, "README.md"), content)
+	return writeFile(filepath.Join(dir, "README.md"), content)
 }
 
 // writeFile 写入文件
