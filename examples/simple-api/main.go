@@ -1,3 +1,8 @@
+// Copyright 2022 Innkeeper AuroraLZDF auroralzdf@gmail.com. All rights reserved.
+// Use of this source code is governed by a MIT style
+// license that can be found in the LICENSE file. The original repo for
+// this file is https://github.com/AuroraLZDF/go-framework.
+
 // 简单 API 示例 - 展示如何使用 framework
 package main
 

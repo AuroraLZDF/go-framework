@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全漏洞（私密报告）
+    url: https://github.com/AuroraLZDF/go-framework/security/advisories/new
+    about: 请勿在公开 issue 中披露安全漏洞，请使用私密漏洞报告。
+  - name: 使用文档
+    url: https://github.com/AuroraLZDF/go-framework/tree/main/docs
+    about: 快速开始、配置、架构、API 稳定性与迁移指南。
+  - name: 发布记录
+    url: https://github.com/AuroraLZDF/go-framework/releases
+    about: 查看版本发布说明与已知变更。

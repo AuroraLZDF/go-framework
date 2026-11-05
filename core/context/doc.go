@@ -1,6 +1,7 @@
-// Copyright 2022 Innkeeper auroralzdf auroralzdf@gmail.com. All rights reserved.
+// Copyright 2022 Innkeeper AuroraLZDF auroralzdf@gmail.com. All rights reserved.
 // Use of this source code is governed by a MIT style
-// license that can be found in the LICENSE file.
+// license that can be found in the LICENSE file. The original repo for
+// this file is https://github.com/AuroraLZDF/go-framework.
 
 // Package known 定义框架在请求上下文（gin.Context / context.Context）中
 // 共享的键，以及框架识别的 HTTP 请求头名称.

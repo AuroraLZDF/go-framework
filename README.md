@@ -406,13 +406,20 @@ go test ./...
 
 ## 🤝 贡献
 
-欢迎提交 Issue 和 Pull Request！
+欢迎参与贡献！请先阅读 [贡献指南](CONTRIBUTING.md) 与 [行为准则](CODE_OF_CONDUCT.md)。
 
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+1. Fork 本仓库并从 `main` 创建特性分支（如 `feat/xxx`、`fix/xxx`）
+2. 遵循 [提交规范](CONTRIBUTING.md#提交规范) 提交更改
+3. 确保 `gofmt`、`go build`、`go vet`、`go test` 全部通过
+4. 开启 Pull Request，并填写 [PR 模板](.github/pull_request_template.md) 中的检查清单
+
+其他约定：
+
+- 提交 Issue 前请搜索是否已有相同问题，并使用 Issue 模板
+- **安全漏洞请勿公开报告**，请按 [安全策略](SECURITY.md) 的私密渠道提交
+- 公共 API 变更需遵循 [API 稳定性策略](docs/api-stability.md)；破坏性变更必须同步更新
+  [迁移指南](docs/migration-0.x-to-1.0.md) 与 CHANGELOG
+- 代码结构、测试要求与发布流程详见 [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## 📄 许可证
 

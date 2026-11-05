@@ -1,0 +1,13 @@
+# CODEOWNERS — 默认评审人
+#
+# 语法参考：https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# 所有变更默认需要仓库维护者评审；公共 API、CI 与发布脚本的变更尤其需要。
+# 若未来引入更多维护者，可在此按目录拆分。
+
+*           @AuroraLZDF
+
+# 核心公共 API 与发布流程
+/core/      @AuroraLZDF
+/scripts/   @AuroraLZDF
+/.github/   @AuroraLZDF

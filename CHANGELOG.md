@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `core/auth/jwt`、`core/context`、`core/service` 增加包级文档（`doc.go`）：
   说明 `token`/`known` 包名与导入路径不一致的约定，以及 `core/service` 为实验性 API。
 - 测试：`core/version/verflag` 类型导出后的可用性覆盖（见 Changed）。
+- 项目治理文件：`CONTRIBUTING.md`、`SECURITY.md`、`CODE_OF_CONDUCT.md`、
+  `.github/CODEOWNERS`、Issue 模板（bug/feature + 配置）、PR 模板与 `NOTICE`
+  （含第三方依赖许可证清单）。
+- 统一全部 Go 源文件版权头为 `AuroraLZDF/go-framework`（含此前缺失/不一致的
+  `examples/simple-api/main.go` 与 `core/errno/user.go`）。
 
 ### Changed
 - `core/version/verflag`：导出 `VersionValue` 类型，使 `Version`/`VersionVar` 可被外部
@@ -31,7 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planned
 - More comprehensive example projects
 - Performance benchmark suite
-- CONTRIBUTING.md guide
 - Code linting configuration (.golangci.yml)
 - Coverage reporting in CI
 

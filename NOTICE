@@ -1,0 +1,30 @@
+go-framework
+Copyright 2022-2026 The go-framework Authors
+https://github.com/AuroraLZDF/go-framework
+
+This product is licensed under the MIT License. See the LICENSE file for the full
+license text.
+
+This product includes software developed by third parties. The following list covers
+the direct dependencies declared in go.mod; transitive dependencies are listed in
+go.sum and retain their own licenses.
+
+  github.com/gin-gonic/gin                  MIT License
+  github.com/go-playground/validator/v10    MIT License
+  github.com/go-sql-driver/mysql             Mozilla Public License 2.0
+  github.com/golang-jwt/jwt/v5              MIT License
+  github.com/google/uuid                    BSD 3-Clause "New" or "Revised" License
+  github.com/gosuri/uitable                 MIT License
+  github.com/redis/go-redis/v9              BSD 2-Clause "Simplified" License
+  github.com/spf13/pflag                    BSD 3-Clause "New" or "Revised" License
+  github.com/spf13/viper                    MIT License
+  go.uber.org/zap                           MIT License
+  golang.org/x/crypto                       BSD 3-Clause "New" or "Revised" License
+  gorm.io/driver/mysql                      MIT License
+  gorm.io/gorm                              MIT License
+
+Mozilla Public License 2.0 (MPL-2.0) note: github.com/go-sql-driver/mysql is used as
+an unmodified module dependency; the source of any MPL-covered files is available
+from the module path above and from the Go module mirror.
+
+All other product names, logos, and marks are the property of their respective owners.
