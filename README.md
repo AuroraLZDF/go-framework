@@ -3,7 +3,8 @@
 一个基于 Gin 的高性能、可扩展的 Go Web 开发框架，提供完整的基础设施组件和最佳实践。
 
 [![Release](https://img.shields.io/badge/release-v0.2.0-blue.svg)](https://github.com/AuroraLZDF/go-framework/releases/tag/v0.2.0)
-[![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://go.dev/dl/)
+[![CI](https://github.com/AuroraLZDF/go-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/AuroraLZDF/go-framework/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/badge/go-1.26+-blue.svg)](https://go.dev/dl/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/AuroraLZDF/go-framework)](https://goreportcard.com/report/github.com/AuroraLZDF/go-framework)
 

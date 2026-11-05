@@ -66,7 +66,7 @@ go test ./...
 | 13 | `validator` 包由 `tools` 改名 | 旧导入路径 `core/validator/tools` 不存在 | 改为 `github.com/AuroraLZDF/go-framework/core/validator` |
 | 14 | 配置支持全量环境变量覆盖，配置文件可选 | `Load("")` + 环境变量即可启动 | 可选：移除必须存在的 `config.yaml` 依赖 |
 | 15 | MySQL DSN：`loc=UTC` + 显式超时；连接池默认值与钳制 | 时间统一按 UTC；DSN 变化影响旧库时区假设 | 确认业务时间处理；`DSN()` 现在返回 `(string, error)` |
-| 16 | Go 版本要求 1.25.1 | 旧工具链无法构建 | 升级 Go |
+| 16 | Go 版本要求 1.26.0（v1.0.0 起） | 旧工具链无法构建 | 升级 Go |
 
 ### 3.2 v0.2.0 引入
 

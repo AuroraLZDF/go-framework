@@ -279,7 +279,9 @@ func (c *Config) Validate() error {
 	// Redis 地址格式校验：支持空、host、host:port、裸 IPv6、[IPv6]、[IPv6]:port；
 	// 拒绝带 scheme（如 redis://）或多余冒号的写法，避免初始化时静默降级为 fail-open。
 	if addr := strings.TrimSpace(c.Redis.Addr); addr != "" {
-		if host, port, err := net.SplitHostPort(addr); err == nil {
+		host, port, splitErr := net.SplitHostPort(addr)
+		switch {
+		case splitErr == nil:
 			if host == "" {
 				return fmt.Errorf("invalid redis.addr %q: host is empty", addr)
 			}
@@ -287,14 +289,14 @@ func (c *Config) Validate() error {
 			if convErr != nil || portNum < 1 || portNum > 65535 {
 				return fmt.Errorf("invalid redis.addr %q: port must be 1-65535", addr)
 			}
-		} else if net.ParseIP(addr) != nil {
+		case net.ParseIP(addr) != nil:
 			// 裸 IP（含 IPv6 字面量），合法
-		} else if strings.HasPrefix(addr, "[") && strings.HasSuffix(addr, "]") &&
-			net.ParseIP(strings.TrimSuffix(strings.TrimPrefix(addr, "["), "]")) != nil {
+		case strings.HasPrefix(addr, "[") && strings.HasSuffix(addr, "]") &&
+			net.ParseIP(strings.TrimSuffix(strings.TrimPrefix(addr, "["), "]")) != nil:
 			// [IPv6] 字面量，合法
-		} else if strings.Contains(addr, "://") {
+		case strings.Contains(addr, "://"):
 			return fmt.Errorf("invalid redis.addr %q: scheme is not supported, use host:port", addr)
-		} else if strings.Contains(addr, ":") {
+		case strings.Contains(addr, ":"):
 			return fmt.Errorf("invalid redis.addr %q: expected host or host:port", addr)
 		}
 		// 其余为纯主机名，合法

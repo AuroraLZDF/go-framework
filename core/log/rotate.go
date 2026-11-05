@@ -131,12 +131,13 @@ func (w *RotateWriter) rotateLocked() error {
 
 	if dir := filepath.Dir(filename); dir != "" && dir != "." {
 		// 目录不可创建时返回错误，避免后续以静默丢日志的方式失败
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return fmt.Errorf("failed to create log directory %q: %w", dir, err)
 		}
 	}
 
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
+	//nolint:gosec // G304: filename 由配置的日志目录与日期生成，非外部可控路径
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o666)
 	if err != nil {
 		return fmt.Errorf("failed to open log file %q: %w", filename, err)
 	}

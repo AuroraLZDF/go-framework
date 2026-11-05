@@ -7,7 +7,7 @@ package errno
 
 var (
 	// ErrUnauthorized 表示请求没有被授权.
-	//ErrUnauthorized = &Errno{HTTP: 401, Code: "AuthFailure.Unauthorized", Message: "Unauthorized."}
+	// ErrUnauthorized = &Errno{HTTP: 401, Code: "AuthFailure.Unauthorized", Message: "Unauthorized."}
 
 	// ErrTokenMissing 表示请求头中没有令牌.
 	ErrTokenMissing = &Errno{HTTP: 401, Code: 401, Message: "Token missing."}

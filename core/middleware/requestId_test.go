@@ -28,7 +28,7 @@ func TestRequestIDGeneratesAndPropagates(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/test", nil))
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/test", http.NoBody))
 
 	header := w.Header().Get(ctxkey.XRequestIDKey)
 	if header == "" {
@@ -51,7 +51,7 @@ func TestRequestIDRejectsInvalidClientValue(t *testing.T) {
 		c.Status(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set(ctxkey.XRequestIDKey, invalid)
 
 	w := httptest.NewRecorder()
@@ -71,7 +71,7 @@ func TestRequestIDKeepsValidClientValue(t *testing.T) {
 		c.Status(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set(ctxkey.XRequestIDKey, valid)
 
 	w := httptest.NewRecorder()

@@ -60,7 +60,7 @@
 
 ## 脚手架
 
-- 生成项目 `go.mod` 使用 `go 1.25.1`，依赖 `github.com/AuroraLZDF/go-framework v0.1.3`。
+- 生成项目 `go.mod` 使用 `go 1.26.0`，依赖 `github.com/AuroraLZDF/go-framework v0.1.3`。
 - 生成 `config.yaml`（可直接运行）与 `config.example.yaml`，无需手动 `cp`；
   默认 JWT secret 为 48 字节示例值，满足校验要求。
 - 生成路由注册使用 `*gorm.DB` 签名，并内置 `GET /health` 业务健康检查。

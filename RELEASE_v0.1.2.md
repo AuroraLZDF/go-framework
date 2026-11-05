@@ -50,15 +50,15 @@ log.Init(&log.Options{
 
 ### 核心更改
 
-1. **[core/log/options.go](file:///home/code/go/src/framework/core/log/options.go)**
+1. **[core/log/options.go](./core/log/options.go)**
    - 新增 `RotateConfig` 结构体
    - `Options` 结构体新增 `Rotation` 字段
 
-2. **[core/log/rotate.go](file:///home/code/go/src/framework/core/log/rotate.go)** (新增)
+2. **[core/log/rotate.go](./core/log/rotate.go)** (新增)
    - 实现 `RotateWriter` 日志轮转写入器
    - 支持线程安全的日志写入和轮转
 
-3. **[core/log/log.go](file:///home/code/go/src/framework/core/log/log.go)**
+3. **[core/log/log.go](./core/log/log.go)**
    - 新增 `createRotateCore` 函数
    - `NewLogger` 支持日志轮转配置
 

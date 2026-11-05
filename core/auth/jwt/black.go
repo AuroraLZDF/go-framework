@@ -118,11 +118,13 @@ func IsBlacklisted(token *jwt.Token) (bool, error) {
 	revokedAtUnix, err := strconv.ParseInt(revokedAt, 10, 64)
 	if err != nil {
 		// 吊销时间格式异常时按已吊销处理，避免绕过
+		//nolint:nilerr // 解析失败时按已吊销处理是安全语义，不是误用
 		return true, nil
 	}
 
 	issuedAt, err := token.Claims.GetIssuedAt()
 	if err != nil || issuedAt == nil {
+		//nolint:nilerr // 无法确认签发时间时按已吊销处理（fail-secure）
 		return true, nil
 	}
 

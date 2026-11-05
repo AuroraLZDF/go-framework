@@ -27,7 +27,7 @@ func TestParamToInt64(t *testing.T) {
 		}
 		c.Status(http.StatusOK)
 	})
-	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/users/42", nil))
+	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/users/42", http.NoBody))
 }
 
 func TestParamToInt64Invalid(t *testing.T) {
@@ -40,7 +40,7 @@ func TestParamToInt64Invalid(t *testing.T) {
 		}
 		c.Status(http.StatusOK)
 	})
-	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/users/abc", nil))
+	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/users/abc", http.NoBody))
 }
 
 func TestParamToInt64IgnoresQuery(t *testing.T) {
@@ -53,7 +53,7 @@ func TestParamToInt64IgnoresQuery(t *testing.T) {
 		}
 		c.Status(http.StatusOK)
 	})
-	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/users?id=7", nil))
+	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/users?id=7", http.NoBody))
 }
 
 func TestGenerateRandomString(t *testing.T) {

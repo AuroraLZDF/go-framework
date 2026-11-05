@@ -10,7 +10,7 @@ import "testing"
 // TestVersionValueExported 确认 VersionValue 类型对外可用（v1.0 API 冻结的一部分）.
 // 在旧版本中该类型未导出，外部无法调用 Version/VersionVar，属于无效 API.
 func TestVersionValueExported(t *testing.T) {
-	var v VersionValue = VersionFalse
+	v := VersionFalse
 	if v.String() != "false" {
 		t.Fatalf("VersionFalse.String() = %q, want %q", v.String(), "false")
 	}

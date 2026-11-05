@@ -6,6 +6,7 @@
 package util
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -72,7 +73,7 @@ func TestAddFileIfNotExistsDoesNotTruncate(t *testing.T) {
 	if err := AddFileIfNotExists(path); err != nil {
 		t.Fatalf("首次 AddFileIfNotExists() error = %v", err)
 	}
-	if err := os.WriteFile(path, []byte("keep-me"), 0644); err != nil {
+	if err := os.WriteFile(path, []byte("keep-me"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -115,7 +116,7 @@ func TestAddFileIfNotExistsOnDirectory(t *testing.T) {
 }
 
 func TestGetRealClientIPFallsBackWhenHeaderInvalid(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.RemoteAddr = "203.0.113.9:5555"
 	r.Header.Set("X-Real-IP", "not-an-ip")
 
@@ -125,7 +126,7 @@ func TestGetRealClientIPFallsBackWhenHeaderInvalid(t *testing.T) {
 }
 
 func TestGetRealClientIPSkipsInvalidEntries(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.RemoteAddr = "203.0.113.9:5555"
 	r.Header.Set("X-Forwarded-For", "invalid, 8.8.8.8")
 
@@ -135,7 +136,7 @@ func TestGetRealClientIPSkipsInvalidEntries(t *testing.T) {
 }
 
 func TestGetRealClientIPPrefersHeader(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.RemoteAddr = "203.0.113.9:5555"
 	r.Header.Set("X-Real-IP", "198.51.100.7, 10.0.0.1")
 
@@ -145,7 +146,7 @@ func TestGetRealClientIPPrefersHeader(t *testing.T) {
 }
 
 func TestGetRealClientIPRemoteAddrWithoutPort(t *testing.T) {
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.RemoteAddr = "192.0.2.5"
 
 	if got := GetRealClientIP(r); got != "192.0.2.5" {
@@ -252,7 +253,11 @@ func TestTreeServiceUsesConfiguredKeys(t *testing.T) {
 		t.Error("应使用配置的 ChildrenKey")
 	}
 
-	leaf := root["items"].([]map[string]interface{})[0]
+	items, ok := root["items"].([]map[string]interface{})
+	if !ok {
+		t.Fatalf("root[items] 类型 = %T, want []map[string]interface{}", root["items"])
+	}
+	leaf := items[0]
 	if leaf["is_leaf"] != true {
 		t.Errorf("leaf[is_leaf] = %v, want true", leaf["is_leaf"])
 	}

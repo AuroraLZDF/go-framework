@@ -138,3 +138,6 @@ docs/swagger/
 
 # Internal development docs (keep in docs/internal/)
 docs/internal/
+
+# Local Go toolchain / golangci-lint cache used by contributors (never commit)
+.dsh-tools/

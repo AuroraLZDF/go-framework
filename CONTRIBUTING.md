@@ -29,7 +29,7 @@
 
 ## 开发环境
 
-- Go **1.25.1**（与 `go.mod` 和 CI 保持一致）
+- Go **1.26+**（`go.mod` 要求 `go 1.26.0`；CI 使用当前 1.26.x 最新补丁版本）
 - Git
 - `make`（可选，用于快捷命令）
 - MySQL 8 / Redis 7 仅在需要时配置；框架在未配置 `database.host` / `redis.addr`
@@ -55,13 +55,20 @@ go test -count=1 ./...
 其他常用命令：
 
 ```bash
+make lint                          # golangci-lint（需本地安装，CI 使用 v2.6.2）
+make sec                           # govulncheck 依赖漏洞扫描（需本地安装 v1.1.4）
+make test-race                     # go test -race
+make cover                         # 覆盖率报告（coverage.out 与总计）
+make check                         # lint + test + test-race
 make test                          # go test ./...
 FRAMEWORK_LOCAL=1 make test-scaffold   # 用本地仓库生成脚手架项目并构建/启动验证
 FRAMEWORK_LOCAL=1 ./scripts/verify-scaffold.sh  # 完整脚手架 E2E（推荐）
 make verify-scaffold               # 需已发布对应 tag，从模块代理拉取
 ```
 
-CI 使用 Go 1.25.1，执行 build / vet / gofmt / shell 语法检查 / 单元测试 / 脚手架 E2E。
+CI 使用 Go 1.26.x，包含以下门禁：build / vet / gofmt / shell 语法检查 / 单元测试、
+golangci-lint（配置见 `.golangci.yml`）、govulncheck 依赖漏洞扫描 + `go mod verify`、
+`go test -race`、覆盖率检查（当前阈值 60%，P0-6 之后提升到 75%）以及脚手架 E2E。
 如果本地 `GOCACHE` 位于只读目录（例如受沙箱限制），可临时指定可写缓存：
 
 ```bash

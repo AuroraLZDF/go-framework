@@ -20,8 +20,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   （含第三方依赖许可证清单）。
 - 统一全部 Go 源文件版权头为 `AuroraLZDF/go-framework`（含此前缺失/不一致的
   `examples/simple-api/main.go` 与 `core/errno/user.go`）。
+- CI 门禁：新增 golangci-lint（`.golangci.yml`，v2.15.0）、govulncheck +
+  `go mod verify`、`go test -race`、覆盖率检查（阈值 60%）与脚手架 E2E job；
+  `Makefile` 增加 `lint`/`sec`/`test-race`/`cover`/`check` 目标，README 增加 CI 徽章，
+  CONTRIBUTING 补充本地检查命令与 CI 门禁说明。
 
 ### Changed
+- **构建基线升级**：最低 Go 版本由 1.25.1 提升到 **1.26.0**（CI 使用 1.26.x
+  最新补丁版本）；同步升级安全修复依赖 `golang.org/x/net` v0.60.0、
+  `golang.org/x/crypto` v0.57.0、`golang.org/x/sys` v0.48.0、`golang.org/x/text`
+  v0.42.0 与 `github.com/quic-go/quic-go` v0.59.1（修复标准库与依赖的可达漏洞，
+  `govulncheck` 现为 0 可达漏洞）。
 - `core/version/verflag`：导出 `VersionValue` 类型，使 `Version`/`VersionVar` 可被外部
   命令行工具实际调用（此前参数类型未导出，API 不可用）。
 - `core/log.NewLogger` 返回 `log.Logger` 接口，不再返回未导出的具体类型 `*zapLogger`；
@@ -36,8 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Planned
 - More comprehensive example projects
 - Performance benchmark suite
-- Code linting configuration (.golangci.yml)
-- Coverage reporting in CI
+- 覆盖率从当前约 65% 提升到 75%（P0-6：补齐 password/db/server/log 等包测试）
 
 ### Future Considerations
 - Interactive scaffold mode with wizards

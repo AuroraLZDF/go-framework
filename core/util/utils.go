@@ -25,7 +25,7 @@ func StructToMap(obj interface{}) map[string]string {
 	objValue := reflect.ValueOf(obj)
 
 	// 支持传入 *struct，同时安全处理 nil 指针/nil interface
-	for objValue.Kind() == reflect.Ptr || objValue.Kind() == reflect.Interface {
+	for objValue.Kind() == reflect.Pointer || objValue.Kind() == reflect.Interface {
 		if objValue.IsNil() {
 			return nil
 		}

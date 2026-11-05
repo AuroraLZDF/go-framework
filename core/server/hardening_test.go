@@ -32,7 +32,7 @@ func TestHealthzIsLivenessOnly(t *testing.T) {
 	app := newHardeningApp(t)
 
 	w := httptest.NewRecorder()
-	app.GetEngine().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	app.GetEngine().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/healthz", http.NoBody))
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
@@ -46,7 +46,7 @@ func TestReadyzWithNoDependencies(t *testing.T) {
 	app := newHardeningApp(t)
 
 	w := httptest.NewRecorder()
-	app.GetEngine().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	app.GetEngine().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/readyz", http.NoBody))
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d, body = %s", w.Code, http.StatusOK, w.Body.String())
@@ -113,7 +113,7 @@ func TestTrustedProxiesDisabledByDefault(t *testing.T) {
 		c.String(http.StatusOK, c.ClientIP())
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/ip", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ip", http.NoBody)
 	req.RemoteAddr = "192.0.2.10:12345"
 	req.Header.Set("X-Forwarded-For", "203.0.113.9")
 
@@ -139,7 +139,7 @@ func TestTrustedProxiesConfigured(t *testing.T) {
 		c.String(http.StatusOK, c.ClientIP())
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/ip", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ip", http.NoBody)
 	req.RemoteAddr = "127.0.0.1:12345"
 	req.Header.Set("X-Forwarded-For", "203.0.113.9")
 
@@ -164,7 +164,7 @@ func TestHTTPSRedirectHandler(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = app.Close() })
 
-	req := httptest.NewRequest(http.MethodGet, "http://example.com/x?y=1", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/x?y=1", http.NoBody)
 	req.Host = "example.com:8080"
 
 	w := httptest.NewRecorder()
@@ -191,7 +191,7 @@ func TestHTTPSRedirectHandlerOmitsDefaultPort(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = app.Close() })
 
-	req := httptest.NewRequest(http.MethodGet, "http://example.com/x", nil)
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/x", http.NoBody)
 	req.Host = "example.com"
 
 	w := httptest.NewRecorder()
@@ -252,7 +252,7 @@ func TestHTTPSRedirectIPv6(t *testing.T) {
 			}
 			t.Cleanup(func() { _ = app.Close() })
 
-			req := httptest.NewRequest(http.MethodGet, "http://example.com/x?y=1", nil)
+			req := httptest.NewRequest(http.MethodGet, "http://example.com/x?y=1", http.NoBody)
 			req.Host = tt.host
 
 			w := httptest.NewRecorder()

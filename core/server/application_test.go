@@ -60,7 +60,7 @@ func TestNewApplicationWiresJWT(t *testing.T) {
 
 	// 未携带 token 时必须返回 401
 	w := httptest.NewRecorder()
-	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/admin", nil))
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/admin", http.NoBody))
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("无 token 时 status = %d, want %d", w.Code, http.StatusUnauthorized)
 	}
@@ -71,7 +71,7 @@ func TestNewApplicationWiresJWT(t *testing.T) {
 		t.Fatalf("Sign() error = %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+resp.AccessToken)
 	w = httptest.NewRecorder()
 	engine.ServeHTTP(w, req)
@@ -92,7 +92,7 @@ func TestNoRouteReturnsUnifiedResponse(t *testing.T) {
 	t.Cleanup(func() { _ = app.Close() })
 
 	w := httptest.NewRecorder()
-	app.GetEngine().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/not-exist", nil))
+	app.GetEngine().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/not-exist", http.NoBody))
 
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
@@ -118,7 +118,7 @@ func TestRecoveryReturnsUnifiedResponse(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	app.GetEngine().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/panic", nil))
+	app.GetEngine().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/panic", http.NoBody))
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusInternalServerError)

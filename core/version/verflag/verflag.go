@@ -89,10 +89,11 @@ func Version(name string, value VersionValue, usage string) *VersionValue {
 
 // PrintAndExitIfRequested 将检查是否传递了 `--version` 标志，如果是，则打印版本并退出.
 func PrintAndExitIfRequested() {
-	if *versionFlag == VersionRaw {
+	switch *versionFlag {
+	case VersionRaw:
 		fmt.Printf("%#v\n", version.Get())
 		os.Exit(0)
-	} else if *versionFlag == VersionTrue {
+	case VersionTrue:
 		fmt.Printf("%s\n", version.Get())
 		os.Exit(0)
 	}

@@ -6,6 +6,7 @@
 package generator
 
 import (
+	"bytes"
 	"errors"
 	"io/fs"
 	"os"
@@ -44,7 +45,7 @@ func TestNewProjectGeneratesFiles(t *testing.T) {
 	for _, want := range []string{
 		"github.com/AuroraLZDF/go-framework v0.2.0",
 		"gorm.io/gorm",
-		"go 1.25.1",
+		"go 1.26.0",
 	} {
 		if !strings.Contains(string(gomod), want) {
 			t.Errorf("go.mod 缺少 %q:\n%s", want, gomod)
@@ -79,7 +80,7 @@ func TestNewProjectGeneratesFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(actual) != string(example) {
+	if !bytes.Equal(actual, example) {
 		t.Error("config.yaml 与 config.example.yaml 内容不一致")
 	}
 }
@@ -111,7 +112,7 @@ func TestNewProjectRejectsInvalidPathName(t *testing.T) {
 
 func TestNewProjectRejectsExistingDirectory(t *testing.T) {
 	t.Chdir(t.TempDir())
-	if err := os.Mkdir("exists-app", 0755); err != nil {
+	if err := os.Mkdir("exists-app", 0o755); err != nil {
 		t.Fatal(err)
 	}
 

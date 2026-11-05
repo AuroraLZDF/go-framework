@@ -452,6 +452,7 @@ func (app *Application) httpsRedirectHandler() http.Handler {
 			locationHost = host + ":" + httpsPort
 		}
 
+		//nolint:gosec // G710: 仅将同一 Host 的 HTTP 请求 308 重定向到 HTTPS，目标主机来自请求 Host 且已移除端口
 		http.Redirect(w, r, "https://"+locationHost+r.URL.RequestURI(), http.StatusPermanentRedirect)
 	})
 }

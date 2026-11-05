@@ -189,7 +189,7 @@ framework/
 - [x] CHANGELOG.md - 含 v0.1.2 / v0.2.0 变更记录
 - [x] RELEASE_v0.2.0.md - 升级说明与 Breaking Changes
 - [x] LICENSE - MIT 许可证
-- [x] docs/quick-start.md - 快速开始（Go 1.25+ / framework v0.2.0）
+- [x] docs/quick-start.md - 快速开始（Go 1.26+ / framework v0.2.0）
 - [x] docs/architecture.md - 架构设计
 - [x] docs/CONFIG_USAGE.md、CONFIG_QUICK_REFERENCE.md - 配置文档
 - [x] docs/CUSTOM_CONFIG*.md - 自定义配置（独立 Viper 实例说明）

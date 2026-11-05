@@ -19,7 +19,7 @@ func init() {
 }
 
 // serve 使用指定的中间件处理一次请求
-func serve(t *testing.T, mw gin.HandlerFunc, method, path, origin string) *httptest.ResponseRecorder {
+func serve(t *testing.T, mw gin.HandlerFunc, method, origin string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	r := gin.New()
@@ -28,7 +28,7 @@ func serve(t *testing.T, mw gin.HandlerFunc, method, path, origin string) *httpt
 		c.Status(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(method, path, nil)
+	req := httptest.NewRequest(method, "/test", http.NoBody)
 	if origin != "" {
 		req.Header.Set("Origin", origin)
 	}
@@ -40,7 +40,7 @@ func serve(t *testing.T, mw gin.HandlerFunc, method, path, origin string) *httpt
 }
 
 func TestCORSDefaultAllowsAnyOriginWithoutCredentials(t *testing.T) {
-	w := serve(t, CORS(), http.MethodGet, "/test", "https://example.com")
+	w := serve(t, CORS(), http.MethodGet, "https://example.com")
 
 	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "*" {
 		t.Errorf("Access-Control-Allow-Origin = %q, want *", got)
@@ -57,7 +57,7 @@ func TestCORSDefaultAllowsAnyOriginWithoutCredentials(t *testing.T) {
 }
 
 func TestCORSExplicitWildcardAllowsAnyOrigin(t *testing.T) {
-	w := serve(t, CORS("*"), http.MethodGet, "/test", "https://example.com")
+	w := serve(t, CORS("*"), http.MethodGet, "https://example.com")
 
 	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "*" {
 		t.Errorf("显式 \"*\" 应允许任意源, Access-Control-Allow-Origin = %q", got)
@@ -73,7 +73,7 @@ func TestCORSExplicitWildcardAllowsAnyOrigin(t *testing.T) {
 func TestCORSWhitelistEchoesOrigin(t *testing.T) {
 	mw := CORS("https://allowed.example.com")
 
-	w := serve(t, mw, http.MethodGet, "/test", "https://allowed.example.com")
+	w := serve(t, mw, http.MethodGet, "https://allowed.example.com")
 	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "https://allowed.example.com" {
 		t.Errorf("Access-Control-Allow-Origin = %q", got)
 	}
@@ -88,7 +88,7 @@ func TestCORSWhitelistEchoesOrigin(t *testing.T) {
 func TestCORSWhitelistRejectsUnknownOrigin(t *testing.T) {
 	mw := CORS("https://allowed.example.com")
 
-	w := serve(t, mw, http.MethodGet, "/test", "https://evil.example.com")
+	w := serve(t, mw, http.MethodGet, "https://evil.example.com")
 	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "" {
 		t.Errorf("非白名单来源不应返回 Access-Control-Allow-Origin, got %q", got)
 	}
@@ -101,7 +101,7 @@ func TestCORSWhitelistRejectsUnknownOrigin(t *testing.T) {
 }
 
 func TestCORSPreflight(t *testing.T) {
-	w := serve(t, CORS(), http.MethodOptions, "/test", "https://example.com")
+	w := serve(t, CORS(), http.MethodOptions, "https://example.com")
 
 	if w.Code != http.StatusNoContent {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNoContent)
@@ -127,7 +127,7 @@ func TestCORSPreflight(t *testing.T) {
 }
 
 func TestCorsDelegatesToCORS(t *testing.T) {
-	w := serve(t, Cors, http.MethodGet, "/test", "https://example.com")
+	w := serve(t, Cors, http.MethodGet, "https://example.com")
 
 	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "*" {
 		t.Errorf("Cors 应等价于 CORS(), Access-Control-Allow-Origin = %q", got)
@@ -147,7 +147,7 @@ func TestSecureHeadersAndNext(t *testing.T) {
 	})
 
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/test", nil))
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/test", http.NoBody))
 
 	if !called {
 		t.Error("Secure 应调用 c.Next() 继续执行后续处理")

@@ -126,8 +126,8 @@ func TestWithFiltersRejectsQualifiedField(t *testing.T) {
 	if err := tx.Find(&rows).Error; err != nil {
 		t.Fatalf("Find() error = %v", err)
 	}
-	if sql := tx.Statement.SQL.String(); !strings.Contains(sql, "1 = 0") {
-		t.Errorf("限定字段名应 fail-closed，SQL = %q", sql)
+	if querySQL := tx.Statement.SQL.String(); !strings.Contains(querySQL, "1 = 0") {
+		t.Errorf("限定字段名应 fail-closed，SQL = %q", querySQL)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestWithFiltersUnknownOperatorReturnsError(t *testing.T) {
 	if !strings.Contains(fmt.Sprint(err), "unsupported filter operator") {
 		t.Errorf("错误信息 = %v, 应包含 unsupported filter operator", err)
 	}
-	if sql := tx.Statement.SQL.String(); sql != "" && !strings.Contains(sql, "1 = 0") {
-		t.Errorf("未知操作符应 fail-closed，SQL = %q", sql)
+	if querySQL := tx.Statement.SQL.String(); querySQL != "" && !strings.Contains(querySQL, "1 = 0") {
+		t.Errorf("未知操作符应 fail-closed，SQL = %q", querySQL)
 	}
 }

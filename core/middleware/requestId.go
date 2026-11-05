@@ -31,6 +31,7 @@ func RequestID() gin.HandlerFunc {
 		c.Set(ctxkey.XRequestIDKey, requestID)
 
 		// 同时写入 request context，便于下游通过 log.C(ctx) 关联日志
+		//nolint:staticcheck // SA1029: 使用公开常量作为 key，调用方需以同一 key 读取
 		ctx := context.WithValue(c.Request.Context(), ctxkey.XRequestIDKey, requestID)
 		c.Request = c.Request.WithContext(ctx)
 

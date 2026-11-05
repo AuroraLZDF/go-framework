@@ -37,7 +37,7 @@ func AddFileIfNotExists(path string) error {
 
 // AddDir 创建目录（含父目录）.
 func AddDir(path string) error {
-	if err := os.MkdirAll(path, 0755); err != nil {
+	if err := os.MkdirAll(path, 0o750); err != nil {
 		return fmt.Errorf("util: create dir %q: %w", path, err)
 	}
 
@@ -47,7 +47,8 @@ func AddDir(path string) error {
 // AddFile 创建空文件；文件已存在时不覆盖、不截断，直接返回 nil.
 // 创建后立即关闭文件句柄，避免句柄泄漏.
 func AddFile(path string) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	//nolint:gosec // G304: AddFile 是公开工具函数，路径由调用方指定
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		if errors.Is(err, fs.ErrExist) {
 			return nil

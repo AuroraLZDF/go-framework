@@ -57,7 +57,7 @@ func NewProject(projectPath string) error {
 		if err := step.run(projectPath, name); err != nil {
 			// 失败回滚：清理已经创建的文件/目录
 			if rmErr := os.RemoveAll(projectPath); rmErr != nil {
-				return fmt.Errorf("failed to generate %s: %w (rollback failed: %v)", step.name, err, rmErr)
+				return fmt.Errorf("failed to generate %s: %w (rollback failed: %w)", step.name, err, rmErr)
 			}
 
 			return fmt.Errorf("failed to generate %s: %w", step.name, err)
@@ -97,7 +97,7 @@ func createProjectStructure(dir, name string) error {
 	}
 
 	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return err
 		}
 	}
@@ -110,7 +110,7 @@ func createProjectStructure(dir, name string) error {
 func generateGoMod(dir, name string) error {
 	content := fmt.Sprintf(`module %s
 
-go 1.25.1
+go 1.26.0
 
 require (
 	github.com/gin-gonic/gin v1.12.0
@@ -334,7 +334,7 @@ A web application built with Go Framework.
 
 ### Prerequisites
 
-- Go 1.25.1+
+- Go 1.26+
 - MySQL 5.7+ (optional)
 - Redis 6.0+ (optional)
 
@@ -389,10 +389,10 @@ MIT License
 func writeFile(path string, content string) error {
 	// 确保目录存在
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
 	}
 
 	// 写入文件
-	return os.WriteFile(path, []byte(content), 0644)
+	return os.WriteFile(path, []byte(content), 0o600)
 }

@@ -20,7 +20,7 @@ import (
 )
 
 func TestAuthnReturnsUnauthorizedForMissingToken(t *testing.T) {
-	w := serve(t, Authn(), http.MethodGet, "/test", "")
+	w := serve(t, Authn(), http.MethodGet, "")
 
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusUnauthorized)
@@ -59,7 +59,7 @@ func TestAuthnAllowsValidToken(t *testing.T) {
 		c.JSON(http.StatusOK, gin.H{"uid": uid})
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+resp.AccessToken)
 
 	w := httptest.NewRecorder()
@@ -96,7 +96,7 @@ func TestAuthnMapsExpiredToken(t *testing.T) {
 		c.Status(http.StatusOK)
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+tokenString)
 
 	w := httptest.NewRecorder()

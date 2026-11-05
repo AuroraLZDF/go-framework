@@ -37,7 +37,7 @@ func initForTest(t *testing.T, opts *Options) {
 }
 
 func newRequest(tokenString string) *http.Request {
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	if tokenString != "" {
 		req.Header.Set("Authorization", "Bearer "+tokenString)
 	}
@@ -46,7 +46,7 @@ func newRequest(tokenString string) *http.Request {
 }
 
 func newRawRequest(header string) *http.Request {
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 	if header != "" {
 		req.Header.Set("Authorization", header)
 	}

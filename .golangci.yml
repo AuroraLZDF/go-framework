@@ -1,0 +1,94 @@
+# golangci-lint 配置（v2 schema）
+# 文档：https://golangci-lint.run/docs/configuration/file/
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - errcheck        # 未处理的 error
+    - govet           # go vet
+    - ineffassign     # 无效赋值
+    - staticcheck     # 静态分析
+    - unused          # 未使用代码
+    - bodyclose       # http 响应体未关闭
+    - errorlint       # 错误包装/比较误用
+    - gocritic        # 代码审查建议
+    - gosec           # 安全扫描
+    - misspell        # 拼写
+    - nilerr          # 错误地返回 nil
+    - revive          # 风格与惯例
+    - unconvert       # 多余类型转换
+    - unparam         # 冗余参数
+    - whitespace      # 多余空白
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+      disabled-checks:
+        - unnamedResult
+        - paramTypeCombine
+        - hugeParam
+    gosec:
+      excludes:
+        - G104 # 未处理错误由 errcheck 覆盖
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: increment-decrement
+        - name: var-naming
+          disabled: true # TokenId/WithId/util 等命名已随 v1.0 API 冻结，重命名属破坏性变更
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+    unparam:
+      check-exported: false
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - std-error-handling
+    paths:
+      - examples
+    rules:
+      # 测试代码允许更宽松的安全/错误检查
+      - path: _test\.go
+        linters:
+          - gosec
+          - bodyclose
+      # scaffold 生成器中的模板字符串包含示例代码，不做风格检查
+      - path: scaffold/internal/generator/templates
+        linters:
+          - revive
+          - gocritic
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/AuroraLZDF/go-framework
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
