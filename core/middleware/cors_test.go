@@ -119,6 +119,8 @@ func TestCORSPreflight(t *testing.T) {
 		"X-Requested-With",
 		"Accept",
 		"Origin",
+		"AppKey",
+		"AppSecret",
 	} {
 		if !strings.Contains(headers, want) {
 			t.Errorf("Access-Control-Allow-Headers 应包含 %s, got %q", want, headers)
