@@ -61,6 +61,7 @@ make test-race                     # go test -race
 make cover                         # 覆盖率报告（coverage.out 与总计）
 make check                         # lint + test + test-race
 make test                          # go test ./...
+make dev                           # air 热更新运行 examples/simple-api（未安装 air 时 go run 兜底）
 FRAMEWORK_LOCAL=1 make test-scaffold   # 用本地仓库生成脚手架项目并构建/启动验证
 FRAMEWORK_LOCAL=1 ./scripts/verify-scaffold.sh  # 完整脚手架 E2E（推荐）
 make verify-scaffold               # 需已发布对应 tag，从模块代理拉取

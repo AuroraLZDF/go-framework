@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `go mod verify`、`go test -race`、覆盖率检查（阈值 60%）与脚手架 E2E job；
   `Makefile` 增加 `lint`/`sec`/`test-race`/`cover`/`check` 目标，README 增加 CI 徽章，
   CONTRIBUTING 补充本地检查命令与 CI 门禁说明。
+- 开发体验：默认接入 air 热更新（github.com/air-verse/air）。脚手架生成的项目
+  自带 `.air.toml` 与 `Makefile`（`make dev` 热更新运行；未安装 air 时自动以
+  `go run github.com/air-verse/air@v1.67.4` 兜底）；框架仓库根目录提供
+  `.air.toml`（热更新 `examples/simple-api`）与 `make dev` 目标。
 
 ### Changed
 - **构建基线升级**：最低 Go 版本由 1.25.1 提升到 **1.26.0**（CI 使用 1.26.x

@@ -46,6 +46,12 @@ go mod tidy
 
 # 运行应用
 go run cmd/app/main.go
+
+# 或开发模式：air 热更新（未安装 air 时自动用 go run 兜底）
+make dev
+
+# 安装 air 获得更快的重构响应（可选）
+go install github.com/air-verse/air@v1.67.4
 ```
 
 ### 方法二：手动创建

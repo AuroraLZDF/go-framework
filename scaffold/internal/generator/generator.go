@@ -29,6 +29,8 @@ var projectSteps = []generateStep{
 	{"go.mod", generateGoMod},
 	{"main.go", generateMainFile},
 	{"config", generateConfigFile},
+	{"air config", generateAirConfig},
+	{"Makefile", generateMakefile},
 	{".gitignore", generateGitignore},
 	{"README.md", generateReadme},
 }
@@ -272,6 +274,117 @@ log:
 	return writeFile(filepath.Join(dir, "config.yaml"), content)
 }
 
+// generateAirConfig 生成 .air.toml 热更新配置
+// （github.com/air-verse/air；make dev 在未安装 air 时用 go run 兜底）
+func generateAirConfig(dir, name string) error {
+	content := `# air 热更新配置（github.com/air-verse/air）
+# 用法：make dev（优先使用已安装的 air；未安装时自动用 go run 兜底）
+# 文档：https://github.com/air-verse/air
+
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/` + name + ` ./cmd/app"
+bin = "./tmp/` + name + `"
+# 框架自带优雅关闭（SIGTERM 后最多等 shutdown-timeout），
+# air 默认 kill 等待太短，这里放宽到 3s
+delay = 1000
+stop_on_error = true
+send_interrupt = true
+kill_delay = 3000
+# 只关心源码与配置变化，避免日志/临时文件触发重启
+include_ext = ["go", "yaml", "yml"]
+exclude_dir = ["assets", "tmp", "testdata", "bin", "logs", "vendor"]
+exclude_file = []
+include_file = []
+exclude_regex = ["_test\\.go"]
+exclude_unchanged = true
+follow_symlink = true
+args_bin = []
+log = "build-errors.log"
+
+[log]
+time = true
+main_only = false
+
+[color]
+main = "yellow,italic"
+build = "yellow"
+runner = "green"
+watcher = "cyan"
+build_error = "red"
+build_warning = "yellow"
+
+[misc]
+# 退出时清理 tmp 目录
+clean_on_exit = true
+`
+
+	return writeFile(filepath.Join(dir, ".air.toml"), content)
+}
+
+// generateMakefile 生成项目 Makefile（build/dev/test/lint 等）
+func generateMakefile(dir, name string) error {
+	content := `.PHONY: build run dev test lint cover clean help
+
+APP_NAME := ` + name + `
+AIR_PKG := github.com/air-verse/air
+AIR_VERSION := v1.67.4
+
+build: ## 编译应用到 tmp/
+	@go build -o tmp/` + name + ` ./cmd/app
+	@echo "✅ Built: tmp/` + name + `"
+
+run: ## 直接运行（不带热更新）
+	@go run ./cmd/app
+
+dev: ## 热更新运行（air 优先，未安装时 go run 兜底）
+	@if command -v air >/dev/null 2>&1; then \
+		echo "🔥 air 热更新启动..."; \
+		air -c .air.toml; \
+	else \
+		echo "⚠️  air 未安装，使用 go run 兜底（首次会自动下载 air $$(AIR_VERSION)）"; \
+		echo "   提示：go install $$(AIR_PKG)@$$(AIR_VERSION) 可获得更快的热更新体验"; \
+		go run $$(AIR_PKG)@$$(AIR_VERSION) -c .air.toml; \
+	fi
+
+test: ## 运行全部单元测试
+	@go test ./...
+
+lint: ## 运行 golangci-lint（需本地安装）
+	@command -v golangci-lint >/dev/null 2>&1 || { \
+		echo "golangci-lint 未安装，请参考 https://golangci-lint.run/docs/welcome/install/"; \
+		exit 1; \
+	}
+	@golangci-lint run ./...
+
+cover: ## 运行测试并输出总覆盖率
+	@go test -coverprofile=coverage.out -count=1 ./...
+	@go tool cover -func=coverage.out | tail -1
+
+clean: ## 清理构建产物
+	@rm -rf tmp coverage.out
+	@echo "✅ Cleaned tmp/ coverage.out"
+
+help: ## 显示帮助
+	@echo "Usage: make <target>"
+	@echo ""
+	@echo "Targets:"
+	@echo "  build   编译应用到 tmp/"
+	@echo "  run     直接运行（不带热更新）"
+	@echo "  dev     热更新运行（air 优先，go run 兜底）"
+	@echo "  test    运行单元测试"
+	@echo "  lint    运行 golangci-lint"
+	@echo "  cover   测试覆盖率"
+	@echo "  clean   清理 tmp/ coverage.out"
+	@echo "  help    显示本帮助"
+`
+
+	return writeFile(filepath.Join(dir, "Makefile"), content)
+}
+
 // generateGitignore 生成 .gitignore 文件
 func generateGitignore(dir, name string) error {
 	content := `# Binaries
@@ -351,7 +464,15 @@ A web application built with Go Framework.
 
 4. Run the application:
    ` + "```bash" + `
+   # 开发模式（air 热更新；未安装 air 时自动用 go run 兜底）
+   make dev
+
+   # 或直接运行
    go run cmd/app/main.go
+   ` + "```" + `
+   安装 air 以获得更快的热更新体验：
+   ` + "```bash" + `
+   go install github.com/air-verse/air@v1.67.4
    ` + "```" + `
 
 ## Project Structure

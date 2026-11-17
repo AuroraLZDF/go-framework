@@ -1,4 +1,4 @@
-.PHONY: build install clean test lint sec test-race cover check test-scaffold verify-scaffold release-tag help
+.PHONY: build install clean dev test lint sec test-race cover check test-scaffold verify-scaffold release-tag help
 
 # 版本信息：优先使用 git describe，未打 tag 时回退到最近一次发布版本
 VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo v0.2.0)
@@ -30,8 +30,21 @@ install: ## 安装 scaffold 到 GOBIN（或 GOPATH/bin）
 	@echo "✅ Installed to $(GOBIN_DIR)/scaffold"
 
 clean: ## 清理构建产物
-	@rm -rf bin
-	@echo "✅ Cleaned bin/"
+	@rm -rf bin tmp
+	@echo "✅ Cleaned bin/ tmp/"
+
+AIR_PKG := github.com/air-verse/air
+AIR_VERSION := v1.67.4
+
+dev: ## 热更新运行示例（air 优先，未安装时 go run 兜底）
+	@if command -v air >/dev/null 2>&1; then \
+		echo "🔥 air 热更新启动（examples/simple-api）..."; \
+		air -c .air.toml; \
+	else \
+		echo "⚠️  air 未安装，使用 go run 兜底（首次会自动下载 air $(AIR_VERSION)）"; \
+		echo "   提示：go install $(AIR_PKG)@$(AIR_VERSION) 可获得更快的热更新体验"; \
+		go run $(AIR_PKG)@$(AIR_VERSION) -c .air.toml; \
+	fi
 
 test: ## 运行全部单元测试
 	@go test ./...
@@ -79,7 +92,8 @@ help: ## 显示帮助
 	@echo "Targets:"
 	@echo "  build           构建 scaffold 到 bin/scaffold"
 	@echo "  install         安装 scaffold 到 GOBIN/GOPATH/bin"
-	@echo "  clean           清理 bin/"
+	@echo "  clean           清理 bin/ tmp/"
+	@echo "  dev             热更新运行示例（air 优先，go run 兜底）"
 	@echo "  test            运行单元测试 (go test ./...)"
 	@echo "  lint            运行 golangci-lint"
 	@echo "  sec             运行 govulncheck 依赖漏洞扫描"

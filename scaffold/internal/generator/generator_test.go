@@ -83,6 +83,27 @@ func TestNewProjectGeneratesFiles(t *testing.T) {
 	if !bytes.Equal(actual, example) {
 		t.Error("config.yaml 与 config.example.yaml 内容不一致")
 	}
+
+	// .air.toml 与 Makefile：热更新接入
+	airConfig, err := os.ReadFile(filepath.Join("demo-app", ".air.toml"))
+	if err != nil {
+		t.Fatalf(".air.toml 未生成: %v", err)
+	}
+	for _, want := range []string{"air-verse/air", "tmp/demo-app"} {
+		if !strings.Contains(string(airConfig), want) {
+			t.Errorf(".air.toml 缺少 %q", want)
+		}
+	}
+	makefile, err := os.ReadFile(filepath.Join("demo-app", "Makefile"))
+	if err != nil {
+		t.Fatalf("Makefile 未生成: %v", err)
+	}
+	for _, want := range []string{"dev:", "air-verse/air", "go run $$(AIR_PKG)@$$(AIR_VERSION)"} {
+		if !strings.Contains(string(makefile), want) {
+			t.Errorf("Makefile 缺少 %q", want)
+		}
+	}
+
 }
 
 func TestNewProjectWithPath(t *testing.T) {

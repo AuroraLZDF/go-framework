@@ -1,0 +1,47 @@
+# air 热更新配置（github.com/air-verse/air）
+# 用法：make dev（优先使用已安装的 air；未安装时自动用 go run 兜底）
+# 文档：https://github.com/air-verse/air
+
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+# 以 examples/simple-api 作为热更新目标；改动任意 .go/.yaml 后自动重建重启
+cmd = "go build -o ./tmp/simple-api ./examples/simple-api"
+bin = "./tmp/simple-api"
+# simple-api 示例读取所在目录的 config.example.yaml，
+# 因此启动前先切到示例目录（../../tmp 即仓库根的 tmp）
+full_bin = "cd examples/simple-api && ../../tmp/simple-api"
+# 框架自带优雅关闭（SIGTERM 后最多等 shutdown-timeout），
+# air 默认 kill 等待太短，这里放宽到 3s
+delay = 1000
+stop_on_error = true
+send_interrupt = true
+kill_delay = 3000
+# 只关心源码与配置变化，避免日志/临时文件触发重启
+include_ext = ["go", "yaml", "yml"]
+exclude_dir = ["assets", "tmp", "testdata", "bin", "logs", "vendor", "docs", "scaffold", "scripts", ".github"]
+exclude_file = []
+include_file = []
+exclude_regex = ["_test\\.go"]
+exclude_unchanged = true
+follow_symlink = true
+args_bin = []
+log = "build-errors.log"
+
+[log]
+time = true
+main_only = false
+
+[color]
+main = "yellow,italic"
+build = "yellow"
+runner = "green"
+watcher = "cyan"
+build_error = "red"
+build_warning = "yellow"
+
+[misc]
+# 退出时清理 tmp 目录
+clean_on_exit = true

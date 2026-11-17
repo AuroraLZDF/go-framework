@@ -94,7 +94,19 @@ vim config.yaml
 ### 5. 运行项目
 
 ```bash
+# 开发模式：air 热更新（未安装 air 时自动用 go run 兜底）
+make dev
+
+# 或直接运行
 go run cmd/app/main.go
+```
+
+生成项目内置 `.air.toml`（github.com/air-verse/air，监听 `.go`/`.yaml` 变化自动
+重建重启）与 `Makefile`（`build`/`run`/`dev`/`test`/`lint`/`cover` 目标）。
+安装 air 获得更快的重建响应：
+
+```bash
+go install github.com/air-verse/air@v1.67.4
 ```
 
 ### 6. 测试 API

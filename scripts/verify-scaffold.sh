@@ -74,7 +74,7 @@ cd "$WORK_DIR/$APP_NAME"
 for dir in cmd/app internal/biz internal/controller internal/store internal/model internal/service configs sql assets logs; do
     [ -d "$dir" ] || fail "缺少目录: $dir"
 done
-for file in go.mod config.yaml config.example.yaml README.md .gitignore cmd/app/main.go; do
+for file in go.mod config.yaml config.example.yaml README.md .gitignore .air.toml Makefile cmd/app/main.go; do
     [ -f "$file" ] || fail "缺少文件: $file"
 done
 pass "项目结构正确"
@@ -84,6 +84,9 @@ grep -q "name: ${APP_NAME}" config.yaml || fail "config.yaml 中缺少项目名"
 grep -q "${FRAMEWORK_MODULE} ${FRAMEWORK_TAG}" go.mod || fail "go.mod 未依赖 ${FRAMEWORK_MODULE} ${FRAMEWORK_TAG}"
 grep -q '/health' cmd/app/main.go || fail "生成的 main.go 缺少 /health 路由"
 grep -q 'Get("/healthz")' cmd/app/main.go 2>/dev/null || true
+grep -q 'air-verse/air' .air.toml || fail ".air.toml 缺少 air 依赖说明"
+grep -q '^dev:' Makefile || fail "Makefile 缺少 dev 目标"
+grep -q 'air-verse/air' Makefile || fail "Makefile 缺少 air go run 兜底"
 pass "生成内容检查通过"
 
 if [ "${FRAMEWORK_LOCAL:-0}" = "1" ]; then
