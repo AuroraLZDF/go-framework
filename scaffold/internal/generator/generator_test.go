@@ -43,7 +43,7 @@ func TestNewProjectGeneratesFiles(t *testing.T) {
 		t.Fatalf("read go.mod: %v", err)
 	}
 	for _, want := range []string{
-		"github.com/AuroraLZDF/go-framework v0.2.0",
+		"github.com/AuroraLZDF/go-framework v0.3.0",
 		"gorm.io/gorm",
 		"go 1.26.0",
 	} {

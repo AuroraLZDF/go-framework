@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.0] - 2026-11-17
+
 ### Added
+- 脚手架 `scaffold new` 支持相对/绝对路径（如 `scaffold new /path/to/goApis`），
+  项目名取路径最后一段，用于 go.mod module、配置与 README 模板。
 - `docs/api-stability.md`：v1.0 API 冻结范围、稳定性分级（Stable/Experimental/Internal）、
   语义化版本承诺、弃用政策与 API 决策记录（ADR）。
 - `docs/migration-0.x-to-1.0.md`：从 v0.1.x/v0.2.0 升级到 v1.0.0 的破坏性变更清单、
@@ -58,6 +62,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Monitoring integration (Prometheus, Grafana)
 - Internationalization support
 - Additional middleware (rate limiting, caching, etc.)
+
+## [v0.2.1] - 2026-11-06
+
+### Fixed
+- `middleware` 默认 CORS Allow-Headers 增加 `AppKey`、`AppSecret` 自定义头，
+  避免携带这些请求头的跨域预检失败（如登录接口）。
 
 ## [v0.2.0] - 2026-11-05
 

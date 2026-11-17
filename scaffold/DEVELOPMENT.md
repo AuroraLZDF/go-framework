@@ -35,7 +35,7 @@ scaffold/
 2. 创建目录：`cmd/app`、`internal/{biz,controller,store,model,service}`、
    `configs`、`sql`、`assets`、`logs`；
 3. 生成 `go.mod`：`go 1.26.0`，依赖 `gin v1.12.0`、`gorm v1.31.1` 与
-   `github.com/AuroraLZDF/go-framework v0.2.0`；
+   `github.com/AuroraLZDF/go-framework v0.3.0`；
 4. 生成 `cmd/app/main.go`：`config.Load("")` → `cfg.Validate()` →
    `server.NewApplication(cfg)` → `RegisterRoutes(func(*gin.Engine, *gorm.DB))`，
    内置 `GET /health`、`GET /` 与 `/api/v1/users` 示例；

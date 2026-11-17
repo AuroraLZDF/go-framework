@@ -232,8 +232,8 @@ A: `scaffold version` 或 `scaffold --version` 都会打印 GitVersion/BuildDate
 
 ### Q: 脚手架支持哪些 Go 版本？
 
-A: 生成的 `go.mod` 使用 Go 1.26.0，并依赖 `github.com/AuroraLZDF/go-framework v0.2.0`。
-版本 v0.2.0 需要先打 tag 并推送，否则 `go mod tidy` 会提示 unknown revision。
+A: 生成的 `go.mod` 使用 Go 1.26.0，并依赖 `github.com/AuroraLZDF/go-framework v0.3.0`。
+版本 v0.3.0 需要先打 tag 并推送，否则 `go mod tidy` 会提示 unknown revision。
 
 ## 📚 相关文档
 

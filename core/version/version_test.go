@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-func TestGitVersionIsV013(t *testing.T) {
-	if GitVersion != "v0.2.0" {
-		t.Errorf("GitVersion = %q, want v0.2.0", GitVersion)
+func TestGitVersionMatchesRelease(t *testing.T) {
+	if GitVersion != "v0.3.0" {
+		t.Errorf("GitVersion = %q, want v0.3.0", GitVersion)
 	}
 }
 

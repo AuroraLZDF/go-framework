@@ -24,8 +24,8 @@ cd my-awesome-api
 go mod tidy
 ```
 
-> 生成的 `go.mod` 依赖 `github.com/AuroraLZDF/go-framework v0.2.0`。
-> 如果该 tag 尚未发布，会提示 `unknown revision v0.2.0`；请先发布版本，
+> 生成的 `go.mod` 依赖 `github.com/AuroraLZDF/go-framework v0.3.0`。
+> 如果该 tag 尚未发布，会提示 `unknown revision v0.3.0`；请先发布版本，
 > 或在框架仓库内使用 `FRAMEWORK_LOCAL=1 make test-scaffold` 做本地验证。
 
 ### 步骤 4: 按需修改配置
