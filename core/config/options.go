@@ -26,6 +26,12 @@ type Config struct {
 
 	// 日志配置
 	Log LogConfig `mapstructure:"log"`
+
+	// metrics 指标暴露配置
+	Metrics MetricsConfig `mapstructure:"metrics"`
+
+	// 请求限流配置
+	RateLimit RateLimitConfig `mapstructure:"rate-limit"`
 }
 
 // AppConfig 应用配置
@@ -108,4 +114,20 @@ type LogConfig struct {
 	Level             string `mapstructure:"level"`
 	Format            string `mapstructure:"format"`
 	Dir               string `mapstructure:"dir"`
+}
+
+// MetricsConfig metrics 指标暴露配置
+type MetricsConfig struct {
+	// Enabled 是否注册 /metrics 端点并记录请求指标，默认 true（默认值在 Load 中设置）
+	Enabled bool `mapstructure:"enabled"`
+}
+
+// RateLimitConfig 请求限流配置（按客户端 IP 的内存令牌桶）
+type RateLimitConfig struct {
+	// Enabled 是否启用限流
+	Enabled bool `mapstructure:"enabled"`
+	// Rate 每秒允许的请求数
+	Rate float64 `mapstructure:"rate"`
+	// Burst 突发容量（桶大小）
+	Burst int `mapstructure:"burst"`
 }

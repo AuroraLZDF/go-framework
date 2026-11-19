@@ -6,6 +6,7 @@
 package version
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -33,5 +34,52 @@ func TestGetContainsGitVersion(t *testing.T) {
 	}
 	if info.Platform == "" {
 		t.Error("Get().Platform 不应为空")
+	}
+}
+
+func TestInfoString(t *testing.T) {
+	info := Get()
+	s := info.String()
+
+	if s == "" {
+		t.Fatal("String() 不应返回空字符串")
+	}
+	for _, want := range []string{"gitVersion:", GitVersion, "gitCommit:", "buildDate:"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("String() 输出缺少 %q:\n%s", want, s)
+		}
+	}
+}
+
+func TestInfoText(t *testing.T) {
+	info := Get()
+	b, err := info.Text()
+	if err != nil {
+		t.Fatalf("Text() error = %v", err)
+	}
+	if len(b) == 0 {
+		t.Fatal("Text() 不应返回空内容")
+	}
+	if !strings.Contains(string(b), "platform:") {
+		t.Errorf("Text() 输出缺少 platform:\n%s", b)
+	}
+}
+
+func TestInfoToJSON(t *testing.T) {
+	info := Get()
+	raw := info.ToJSON()
+
+	var parsed map[string]string
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		t.Fatalf("ToJSON() 不是合法 JSON: %v\nraw = %s", err, raw)
+	}
+	if parsed["gitVersion"] != GitVersion {
+		t.Errorf("gitVersion = %q, want %q", parsed["gitVersion"], GitVersion)
+	}
+	if parsed["platform"] != info.Platform {
+		t.Errorf("platform = %q, want %q", parsed["platform"], info.Platform)
+	}
+	if parsed["goVersion"] == "" {
+		t.Error("goVersion 不应为空")
 	}
 }

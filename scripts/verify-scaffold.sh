@@ -71,10 +71,10 @@ echo "📁 生成项目..."
 (cd "$WORK_DIR" && "$FRAMEWORK_DIR/bin/scaffold" new "$APP_NAME" >/dev/null)
 cd "$WORK_DIR/$APP_NAME"
 
-for dir in cmd/app internal/biz internal/controller internal/store internal/model internal/service configs sql assets logs; do
+for dir in cmd/app internal/biz internal/controller internal/store internal/model internal/service configs sql migrations assets logs .github/workflows; do
     [ -d "$dir" ] || fail "缺少目录: $dir"
 done
-for file in go.mod config.yaml config.example.yaml README.md .gitignore .air.toml Makefile cmd/app/main.go; do
+for file in go.mod config.yaml config.example.yaml README.md .gitignore .air.toml Makefile Dockerfile docker-compose.yaml .env.example cmd/app/main.go; do
     [ -f "$file" ] || fail "缺少文件: $file"
 done
 pass "项目结构正确"
@@ -87,6 +87,10 @@ grep -q 'Get("/healthz")' cmd/app/main.go 2>/dev/null || true
 grep -q 'air-verse/air' .air.toml || fail ".air.toml 缺少 air 依赖说明"
 grep -q '^dev:' Makefile || fail "Makefile 缺少 dev 目标"
 grep -q 'air-verse/air' Makefile || fail "Makefile 缺少 air go run 兜底"
+grep -q 'golang:1.26-alpine' Dockerfile || fail "Dockerfile 缺少构建阶段"
+grep -q 'services:' docker-compose.yaml || fail "docker-compose.yaml 缺少 services 定义"
+grep -q 'name: CI' .github/workflows/ci.yml || fail "ci.yml 缺少工作流名称"
+grep -q 'rate-limit' config.yaml || fail "config.yaml 缺少 rate-limit 配置"
 pass "生成内容检查通过"
 
 if [ "${FRAMEWORK_LOCAL:-0}" = "1" ]; then
@@ -121,6 +125,10 @@ fi
 curl -fsS "http://127.0.0.1:${APP_PORT}/healthz" >/dev/null || fail "/healthz 请求失败"
 curl -fsS "http://127.0.0.1:${APP_PORT}/health" >/dev/null || fail "/health 请求失败"
 pass "/healthz 与 /health 均返回成功"
+
+curl -fsS "http://127.0.0.1:${APP_PORT}/metrics" | grep -q "http_requests_total" \
+    || fail "/metrics 缺少 http_requests_total 指标"
+pass "/metrics Prometheus 指标正常"
 
 echo ""
 echo -e "${GREEN}✅ 脚手架端到端验证通过！${NC}"

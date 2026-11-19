@@ -307,6 +307,67 @@ func TestValidateTrustedProxiesAndBodyLimit(t *testing.T) {
 	}
 }
 
+func TestValidateRateLimit(t *testing.T) {
+	// 默认不启用限流，Rate/Burst 为零也应通过校验
+	cfg := Config{JWT: JWTConfig{Secret: validSecret}}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("默认限流配置不应报错, got %v", err)
+	}
+	if cfg.RateLimit.Enabled {
+		t.Error("默认不应启用限流")
+	}
+
+	// 启用限流时参数必须为正数
+	cfg = Config{JWT: JWTConfig{Secret: validSecret}}
+	cfg.RateLimit.Enabled = true
+	if err := cfg.Validate(); err == nil {
+		t.Error("启用限流但未配置 rate 应返回错误")
+	}
+
+	cfg.RateLimit.Rate = 100
+	if err := cfg.Validate(); err == nil {
+		t.Error("启用限流但未配置 burst 应返回错误")
+	}
+
+	cfg.RateLimit.Burst = 200
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("完整的限流配置不应报错, got %v", err)
+	}
+}
+
+func TestLoadEnvMetricsAndRateLimit(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Chdir(t.TempDir())
+
+	t.Setenv("FRAMEWORK_JWT_SECRET", validSecret)
+
+	// metrics 默认启用
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if !cfg.Metrics.Enabled {
+		t.Error("metrics.enabled 默认应为 true")
+	}
+
+	// 环境变量可关闭 metrics 并启用限流
+	t.Setenv("FRAMEWORK_METRICS_ENABLED", "false")
+	t.Setenv("FRAMEWORK_RATE_LIMIT_ENABLED", "true")
+	t.Setenv("FRAMEWORK_RATE_LIMIT_RATE", "100")
+	t.Setenv("FRAMEWORK_RATE_LIMIT_BURST", "200")
+
+	cfg, err = Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Metrics.Enabled {
+		t.Error("FRAMEWORK_METRICS_ENABLED=false 应关闭 metrics")
+	}
+	if !cfg.RateLimit.Enabled || cfg.RateLimit.Rate != 100 || cfg.RateLimit.Burst != 200 {
+		t.Errorf("RateLimit = %+v, want enabled 100/200", cfg.RateLimit)
+	}
+}
+
 func TestValidateHTTPSDoesNotDefaultHTTPAddr(t *testing.T) {
 	// 仅启用 HTTPS 时不应隐式监听明文 HTTP 端口
 	cfg := Config{
