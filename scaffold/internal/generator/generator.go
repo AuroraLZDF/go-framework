@@ -29,6 +29,7 @@ var projectSteps = []generateStep{
 	{"go.mod", generateGoMod},
 	{"main.go", generateMainFile},
 	{"config", generateConfigFile},
+	{"OpenAPI example spec", generateOpenAPISpec},
 	{"air config", generateAirConfig},
 	{"Makefile", generateMakefile},
 	{"Dockerfile", generateDockerfile},
@@ -99,6 +100,7 @@ func createProjectStructure(dir, name string) error {
 		filepath.Join(dir, "configs"),
 		filepath.Join(dir, "sql"),
 		filepath.Join(dir, "migrations"),
+		filepath.Join(dir, "docs"),
 		filepath.Join(dir, "assets"),
 		filepath.Join(dir, "logs"),
 	}
@@ -121,7 +123,7 @@ go 1.26.0
 
 require (
 	github.com/gin-gonic/gin v1.12.0
-	github.com/AuroraLZDF/go-framework v0.3.0
+	github.com/AuroraLZDF/go-framework v0.5.0
 	gorm.io/gorm v1.31.1
 )
 `, name)
@@ -166,6 +168,11 @@ func main() {
 
 	// 注册路由
 	app.RegisterRoutes(func(engine *gin.Engine, db *gorm.DB) {
+		// 在线 API 文档（Swagger UI）：需要 docs/openapi.yaml，按需启用
+		// if err := docs.Register(engine, docs.Options{SpecPath: "docs/openapi.yaml"}); err != nil {
+		// 	log.Fatalf("Failed to register docs: %v", err)
+		// }
+
 		// 健康检查
 		engine.GET("/health", func(c *gin.Context) {
 			response.Success(c, gin.H{"status": "healthy"}, "ok")
