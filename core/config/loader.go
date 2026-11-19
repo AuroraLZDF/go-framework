@@ -68,6 +68,10 @@ var envKeys = []string{
 	"log.level",
 	"log.format",
 	"log.dir",
+	"metrics.enabled",
+	"rate-limit.enabled",
+	"rate-limit.rate",
+	"rate-limit.burst",
 }
 
 // Load 加载配置文件
@@ -113,6 +117,9 @@ func Load(configPath string) (*Config, error) {
 			return nil, fmt.Errorf("failed to bind env for %s: %w", key, err)
 		}
 	}
+
+	// metrics 默认启用，YAML 或环境变量可显式关闭
+	v.SetDefault("metrics.enabled", true)
 
 	// 读取配置文件
 	if err := v.ReadInConfig(); err != nil {
@@ -254,6 +261,16 @@ func (c *Config) Validate() error {
 	// 请求体上限必须为正数，避免所有请求被拒绝
 	if c.Server.MaxBodyBytes <= 0 {
 		return fmt.Errorf("server.max-body-bytes must be positive, got %d", c.Server.MaxBodyBytes)
+	}
+
+	// 限流开启时参数必须为正数，避免限流器永远放行或永远拒绝
+	if c.RateLimit.Enabled {
+		if c.RateLimit.Rate <= 0 {
+			return fmt.Errorf("rate-limit.rate must be positive when rate-limit is enabled, got %v", c.RateLimit.Rate)
+		}
+		if c.RateLimit.Burst <= 0 {
+			return fmt.Errorf("rate-limit.burst must be positive when rate-limit is enabled, got %d", c.RateLimit.Burst)
+		}
 	}
 
 	// 可信代理必须是合法 IP 或 CIDR，避免非法配置在启动后才暴露。

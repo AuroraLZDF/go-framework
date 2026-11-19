@@ -58,3 +58,23 @@ func TestErrorDoesNotLeakUnknownErrorDetail(t *testing.T) {
 		t.Errorf("响应应返回统一的内部错误信息, body = %s", body)
 	}
 }
+
+func TestSuccessReturnsUnifiedResponse(t *testing.T) {
+	c, w := newTestContext()
+
+	Success(c, gin.H{"status": "ok"}, "ok")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `"code":200`) {
+		t.Errorf("成功响应应包含业务码 200, body = %s", body)
+	}
+	if !strings.Contains(body, `"message":"ok"`) {
+		t.Errorf("响应缺少 message 字段, body = %s", body)
+	}
+	if !strings.Contains(body, `"status":"ok"`) {
+		t.Errorf("响应应包含 content 数据, body = %s", body)
+	}
+}

@@ -31,6 +31,10 @@ var projectSteps = []generateStep{
 	{"config", generateConfigFile},
 	{"air config", generateAirConfig},
 	{"Makefile", generateMakefile},
+	{"Dockerfile", generateDockerfile},
+	{"docker-compose", generateDockerCompose},
+	{"CI workflow", generateCIWorkflow},
+	{".env.example", generateEnvExample},
 	{".gitignore", generateGitignore},
 	{"README.md", generateReadme},
 }
@@ -94,6 +98,7 @@ func createProjectStructure(dir, name string) error {
 		filepath.Join(dir, "internal", "service"),
 		filepath.Join(dir, "configs"),
 		filepath.Join(dir, "sql"),
+		filepath.Join(dir, "migrations"),
 		filepath.Join(dir, "assets"),
 		filepath.Join(dir, "logs"),
 	}
@@ -264,6 +269,16 @@ log:
   level: info  # debug, info, warn, error
   format: json  # console, json
   dir: logs
+
+metrics:
+  # Prometheus 指标暴露（/metrics），默认 true，设为 false 关闭
+  enabled: true
+
+rate-limit:
+  # 按客户端 IP 的令牌桶限流，默认关闭；开启时 rate/burst 必须为正数
+  enabled: false
+  rate: 100    # 每秒允许的请求数
+  burst: 200   # 突发容量
 `
 
 	// config.example.yaml 作为模板保留，config.yaml 直接可用
@@ -488,15 +503,31 @@ A web application built with Go Framework.
 │   └── service/         # External services
 ├── configs/             # Configuration files
 ├── sql/                 # Database scripts
+├── migrations/          # Database migrations
 ├── assets/              # Static assets
-└── logs/                # Log files
+├── logs/                # Log files
+├── Dockerfile           # Multi-stage build
+├── docker-compose.yaml  # App + MySQL + Redis for local dev
+└── .github/workflows/   # CI (vet / test / build / docker)
 ` + "```" + `
 
 ## API Endpoints
 
-- ` + "`GET /health`" + ` - Health check
+- ` + "`GET /healthz`" + ` - Liveness probe
+- ` + "`GET /readyz`" + ` - Readiness probe (checks MySQL/Redis)
+- ` + "`GET /metrics`" + ` - Prometheus metrics
 - ` + "`GET /`" + ` - Welcome message
 - ` + "`GET /api/v1/users`" + ` - Get users list
+
+## Deployment
+
+` + "```bash" + `
+# 本地开发（air 热更新）
+make dev
+
+# Docker 本地环境（应用 + MySQL + Redis）
+docker compose up -d
+` + "```" + `
 
 ## License
 
@@ -504,6 +535,157 @@ MIT License
 `
 
 	return writeFile(filepath.Join(dir, "README.md"), content)
+}
+
+// generateDockerfile 生成 Dockerfile（多阶段构建，最终镜像基于 distroless 风格的最小运行环境）
+func generateDockerfile(dir, name string) error {
+	content := `# 多阶段构建：编译与运行环境分离，最终镜像不含 Go 工具链
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /app
+
+# 先复制依赖清单，利用缓存加速重复构建
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/bin/` + name + ` cmd/app/main.go
+
+FROM alpine:3.21
+
+RUN apk add --no-cache ca-certificates tzdata && \
+    adduser -D -u 10001 appuser
+
+WORKDIR /app
+COPY --from=builder /app/bin/` + name + ` ./app
+COPY --from=builder /app/config.example.yaml ./config.example.yaml
+
+USER appuser
+
+EXPOSE 8080
+
+ENTRYPOINT ["./app"]
+`
+
+	return writeFile(filepath.Join(dir, "Dockerfile"), content)
+}
+
+// generateDockerCompose 生成 docker-compose.yaml（应用 + MySQL + Redis 开发环境）
+func generateDockerCompose(dir, name string) error {
+	content := `# 开发环境编排：应用 + MySQL + Redis
+# 启动：docker compose up -d
+services:
+  ` + name + `:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      FRAMEWORK_APP_MODE: release
+      FRAMEWORK_DATABASE_MYSQL_HOST: mysql
+      FRAMEWORK_DATABASE_MYSQL_DATABASE: ` + name + `_db
+      FRAMEWORK_REDIS_ADDR: redis
+      FRAMEWORK_JWT_SECRET: change-this-to-a-random-secret-key-in-production
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: ` + name + `_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  redis_data:
+`
+
+	return writeFile(filepath.Join(dir, "docker-compose.yaml"), content)
+}
+
+// generateCIWorkflow 生成 GitHub Actions CI 工作流
+func generateCIWorkflow(dir, name string) error {
+	content := `name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
+          cache: true
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race -count=1 ./...
+
+      - name: Build
+        run: go build ./...
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t ` + name + `:ci .
+`
+
+	return writeFile(filepath.Join(dir, ".github", "workflows", "ci.yml"), content)
+}
+
+// generateEnvExample 生成 .env.example（docker-compose 与本地环境变量模板）
+func generateEnvExample(dir, name string) error {
+	content := `# 复制为 .env 使用（.env 已被 .gitignore 忽略，不要提交真实密钥）
+# 所有配置项均可用 FRAMEWORK_ 前缀的环境变量覆盖
+
+FRAMEWORK_APP_MODE=debug
+FRAMEWORK_SERVER_HTTP_ADDR=:8080
+
+FRAMEWORK_DATABASE_MYSQL_HOST=127.0.0.1
+FRAMEWORK_DATABASE_MYSQL_USERNAME=root
+FRAMEWORK_DATABASE_MYSQL_PASSWORD=your_password
+FRAMEWORK_DATABASE_MYSQL_DATABASE=` + name + `_db
+
+FRAMEWORK_REDIS_ADDR=127.0.0.1
+FRAMEWORK_REDIS_PORT=6379
+
+# 至少 32 字节
+FRAMEWORK_JWT_SECRET=change-this-to-a-random-secret-key-in-production
+`
+
+	return writeFile(filepath.Join(dir, ".env.example"), content)
 }
 
 // writeFile 写入文件

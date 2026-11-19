@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.4.0] - 2026-11-19
+
+### Added
+- 可观测性：新增 Prometheus 指标支持。`middleware.Metrics()` 按 method/route/status
+  记录 `http_requests_total` 与 `http_request_duration_seconds`；Application 默认注册
+  `/metrics` 端点（`metrics.enabled: false` 可关闭），`/metrics` 自身不计入指标。
+- 限流中间件 `middleware.RateLimit(rate, burst)`：按客户端 IP 的内存令牌桶，
+  超限返回统一错误响应 429（`errno.ErrTooManyRequests`）；通过
+  `rate-limit.enabled/rate/burst` 配置启用（默认关闭，开启时参数必须为正数）。
+- 脚手架生成的项目新增生产化模板：多阶段 `Dockerfile`、`docker-compose.yaml`
+  （应用 + MySQL + Redis）、`.github/workflows/ci.yml`（vet/test/build/docker）、
+  `.env.example` 与 `migrations/` 目录；生成的 config.yaml 增加 metrics 与
+  rate-limit 配置示例。
+- 测试：补齐 P0-6 覆盖率缺口——password（100%）、database/db（39.3%→83.8%）、
+  log（67.6%→89.7%）、server（61.4%→80.9%）；util/validator/version/verflag/
+  response/middleware 同步补强，总覆盖率 69.0%→87.3%。
+- CI 覆盖率阈值从 60% 提升到 75%。
+- `errno.ErrTooManyRequests`（HTTP 429）。
+
 ## [v0.3.0] - 2026-11-17
 
 ### Added
@@ -57,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Future Considerations
 - Interactive scaffold mode with wizards
-- Code generation subcommands (generate api/model/crud)
+- Code generation subcommands (generate api) — model/crud 已在 v0.5.0 实现
 - Microservice architecture templates
 - Monitoring integration (Prometheus, Grafana)
 - Internationalization support

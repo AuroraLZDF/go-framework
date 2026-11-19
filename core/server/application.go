@@ -362,6 +362,11 @@ func (app *Application) registerMiddlewares() {
 		middleware.BodyLimit(app.config.Server.MaxBodyBytes),
 	)
 
+	// 请求限流（按客户端 IP 的令牌桶），配置 rate-limit.enabled: true 时生效
+	if app.config.RateLimit.Enabled {
+		app.engine.Use(middleware.RateLimit(app.config.RateLimit.Rate, app.config.RateLimit.Burst))
+	}
+
 	// 注册 404 Handler，与业务错误使用统一的响应结构
 	app.engine.NoRoute(func(c *gin.Context) {
 		response.Error(c, errno.ErrPageNotFound)
@@ -374,6 +379,13 @@ func (app *Application) registerMiddlewares() {
 
 	// /readyz 检查已配置的依赖（MySQL/Redis），用于负载均衡摘流与发布探针（readiness）
 	app.engine.GET("/readyz", app.readinessHandler)
+
+	// /metrics 暴露 Prometheus 指标，默认启用；metrics.enabled: false 时关闭
+	if app.config.Metrics.Enabled {
+		// 请求指标中间件需要在路由注册前挂载，/metrics 自身不计入指标
+		app.engine.Use(middleware.Metrics())
+		app.engine.GET("/metrics", middleware.MetricsHandler())
+	}
 }
 
 // createHTTPServer 创建 HTTP 服务器

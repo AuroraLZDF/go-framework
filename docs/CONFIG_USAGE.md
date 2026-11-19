@@ -129,6 +129,17 @@ log:
   level: info  # debug, info, warn, error
   format: json  # console, json
   dir: logs
+
+# metrics 指标暴露配置
+metrics:
+  # 默认 true；设为 false 关闭 /metrics 端点与请求指标
+  enabled: true
+
+# 请求限流配置（按客户端 IP 的内存令牌桶）
+rate-limit:
+  enabled: false
+  rate: 100    # 每秒允许的请求数
+  burst: 200   # 突发容量
 ```
 
 ---

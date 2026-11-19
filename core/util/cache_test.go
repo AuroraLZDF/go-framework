@@ -10,6 +10,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 func TestCacheUnavailableWithoutRedis(t *testing.T) {
@@ -30,5 +32,27 @@ func TestCacheUnavailableWithoutRedis(t *testing.T) {
 	}
 
 	// 客户端为空时 Close 不应 panic
+	c.Close()
+}
+
+func TestCacheExistsWithUnreachableRedis(t *testing.T) {
+	// 直接注入指向不可达地址的客户端，覆盖 Exists 的错误分支
+	client := redis.NewClient(&redis.Options{
+		Addr:        "127.0.0.1:1",
+		DialTimeout: 200 * time.Millisecond,
+		ReadTimeout: 200 * time.Millisecond,
+	})
+	t.Cleanup(func() { _ = client.Close() })
+
+	c := &cache{client: client}
+	ok, err := c.Exists(context.Background(), "key")
+	if ok {
+		t.Error("Redis 不可达时 Exists 不应返回 true")
+	}
+	if err == nil {
+		t.Error("Redis 不可达时 Exists 应返回错误")
+	}
+
+	// client 非 nil 时 Close 不应 panic
 	c.Close()
 }

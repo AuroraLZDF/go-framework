@@ -18,6 +18,9 @@ var (
 	// ErrRequestEntityTooLarge 表示请求体超过服务器允许的大小.
 	ErrRequestEntityTooLarge = &Errno{HTTP: 413, Code: 413, Message: "Request entity too large."}
 
+	// ErrTooManyRequests 表示请求频率超过限流阈值.
+	ErrTooManyRequests = &Errno{HTTP: 429, Code: 429, Message: "Too many requests."}
+
 	// ErrBind 表示参数绑定错误.
 	ErrBind = &Errno{HTTP: 400, Code: 1, Message: "Error occurred while binding the request body to the struct."}
 

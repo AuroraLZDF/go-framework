@@ -64,10 +64,34 @@ func TestNewProjectGeneratesFiles(t *testing.T) {
 			t.Errorf("读取 %s 失败: %v", name, err)
 			continue
 		}
-		for _, want := range []string{"shutdown-timeout", "pool-size", "至少 32 字节"} {
+		for _, want := range []string{"shutdown-timeout", "pool-size", "至少 32 字节", "rate-limit", "metrics"} {
 			if !strings.Contains(string(content), want) {
 				t.Errorf("%s 缺少 %q", name, want)
 			}
+		}
+	}
+
+	// 生产化模板文件应全部生成
+	for _, rel := range []string{
+		"Dockerfile",
+		"docker-compose.yaml",
+		".github/workflows/ci.yml",
+		".env.example",
+		"migrations",
+	} {
+		if _, err := os.Stat(filepath.Join("demo-app", rel)); err != nil {
+			t.Errorf("%s 未生成: %v", rel, err)
+		}
+	}
+
+	// Dockerfile 应包含构建阶段与应用名
+	dockerfile, err := os.ReadFile(filepath.Join("demo-app", "Dockerfile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"golang:1.26-alpine", "demo-app"} {
+		if !strings.Contains(string(dockerfile), want) {
+			t.Errorf("Dockerfile 缺少 %q", want)
 		}
 	}
 

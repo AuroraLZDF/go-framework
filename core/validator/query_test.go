@@ -149,3 +149,82 @@ func TestWithFiltersUnknownOperatorReturnsError(t *testing.T) {
 		t.Errorf("未知操作符应 fail-closed，SQL = %q", querySQL)
 	}
 }
+
+func TestQueryOptionsBuildExpectedSQL(t *testing.T) {
+	tests := []struct {
+		name    string
+		opt     QueryOption
+		wantSQL string
+		wantVar interface{}
+	}{
+		{"WithId", WithId(42), "id = ?", int64(42)},
+		{"WithUserId", WithUserId(7), "uid = ?", int64(7)},
+		{"WithPhone", WithPhone("13800000000"), "phone = ?", "13800000000"},
+		{"WithCode", WithCode("abc123"), "code = ?", "abc123"},
+		{"WithStatus", WithStatus(1), "status = ?", int64(1)},
+		{"WithType", WithType(2), "type = ?", int64(2)},
+		{"WithMcId", WithMcId(9), "mc_id = ?", int64(9)},
+		{"WithName", WithName("alice"), "name = ?", "alice"},
+		{"WithArchived", WithArchived(1), "archived = ?", int64(1)},
+		{"WithTitle", WithTitle("hello"), "title LIKE ?", "%hello%"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := newDryRunDB(t)
+			tx := db.Session(&gorm.Session{DryRun: true}).Scopes(tt.opt).Table("users")
+
+			var rows []map[string]interface{}
+			if err := tx.Find(&rows).Error; err != nil {
+				t.Fatalf("Find() error = %v", err)
+			}
+
+			if querySQL := tx.Statement.SQL.String(); !strings.Contains(querySQL, tt.wantSQL) {
+				t.Errorf("SQL = %q, 应包含 %q", querySQL, tt.wantSQL)
+			}
+			if len(tx.Statement.Vars) != 1 {
+				t.Fatalf("Vars = %v, want 1 个参数", tx.Statement.Vars)
+			}
+			if tx.Statement.Vars[0] != tt.wantVar {
+				t.Errorf("参数 = %v (%T), want %v", tx.Statement.Vars[0], tx.Statement.Vars[0], tt.wantVar)
+			}
+		})
+	}
+}
+
+func TestQueryOptionsSkipEmptyConditions(t *testing.T) {
+	db := newDryRunDB(t)
+	tx := db.Session(&gorm.Session{DryRun: true}).
+		Scopes(WithTitle(""), WithArchived(0)).
+		Table("users")
+
+	var rows []map[string]interface{}
+	if err := tx.Find(&rows).Error; err != nil {
+		t.Fatalf("Find() error = %v", err)
+	}
+
+	if querySQL := tx.Statement.SQL.String(); strings.Contains(querySQL, "WHERE") {
+		t.Errorf("空条件不应生成 WHERE 子句, SQL = %q", querySQL)
+	}
+	if len(tx.Statement.Vars) != 0 {
+		t.Errorf("Vars = %v, want 0 个参数", tx.Statement.Vars)
+	}
+}
+
+func TestWithTitleEscapesLikeWildcards(t *testing.T) {
+	db := newDryRunDB(t)
+	tx := db.Session(&gorm.Session{DryRun: true}).Scopes(WithTitle(`50%_off`)).Table("users")
+
+	var rows []map[string]interface{}
+	if err := tx.Find(&rows).Error; err != nil {
+		t.Fatalf("Find() error = %v", err)
+	}
+
+	if len(tx.Statement.Vars) != 1 {
+		t.Fatalf("Vars = %v, want 1 个参数", tx.Statement.Vars)
+	}
+	want := `%50\%\_off%`
+	if got, ok := tx.Statement.Vars[0].(string); !ok || got != want {
+		t.Errorf("LIKE 参数 = %v, want %q（通配符应被转义）", tx.Statement.Vars[0], want)
+	}
+}

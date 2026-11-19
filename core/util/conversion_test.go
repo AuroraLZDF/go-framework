@@ -56,6 +56,29 @@ func TestParamToInt64IgnoresQuery(t *testing.T) {
 	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/users?id=7", http.NoBody))
 }
 
+func TestAssignIfNotNil(t *testing.T) {
+	dst := "old"
+	src := "new"
+	AssignIfNotNil(&dst, &src)
+	if dst != "new" {
+		t.Errorf("src 非 nil 时应完成赋值, dst = %q, want %q", dst, "new")
+	}
+
+	num := 1
+	AssignIfNotNil(&num, (*int)(nil))
+	if num != 1 {
+		t.Errorf("src 为 nil 时不应修改目标值, num = %d, want 1", num)
+	}
+
+	type point struct{ X, Y int }
+	pdst := point{X: 0, Y: 0}
+	psrc := point{X: 3, Y: 4}
+	AssignIfNotNil(&pdst, &psrc)
+	if pdst.X != 3 || pdst.Y != 4 {
+		t.Errorf("结构体类型应完成赋值, pdst = %v", pdst)
+	}
+}
+
 func TestGenerateRandomString(t *testing.T) {
 	if got := GenerateRandomString(0); got != "" {
 		t.Errorf("长度为 0 时应返回空字符串, got %q", got)

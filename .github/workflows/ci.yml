@@ -120,8 +120,8 @@ jobs:
           go tool cover -func=coverage.out > coverage.txt
           total="$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}' | tr -d '%')"
           echo "Total coverage: ${total}%"
-          # 当前基线约 65%（v1.0.0 前目标：P0-6 补齐 password/db/server/log 测试后提升到 75%）
-          threshold=60
+          # P0-6 补齐 password/db/server/log 测试后，v0.4.0 基线为 87%；阈值 75%
+          threshold=75
           awk -v total="$total" -v min="$threshold" 'BEGIN {
             if (total + 0 < min + 0) {
               printf "FAIL: total coverage %.1f%% is below the %d%% threshold\n", total, min
