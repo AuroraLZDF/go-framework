@@ -15,6 +15,9 @@ var (
 	// ErrPageNotFound 表示路由不匹配错误.
 	ErrPageNotFound = &Errno{HTTP: 404, Code: 404, Message: "Page not found."}
 
+	// ErrNotFound 表示请求的资源不存在（记录级 404，区别于路由级 ErrPageNotFound）.
+	ErrNotFound = &Errno{HTTP: 404, Code: 404, Message: "Resource not found."}
+
 	// ErrRequestEntityTooLarge 表示请求体超过服务器允许的大小.
 	ErrRequestEntityTooLarge = &Errno{HTTP: 413, Code: 413, Message: "Request entity too large."}
 

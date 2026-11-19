@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.5.0] - 2026-11-19
+
+### Added
+- **数据库迁移工具**：新增 `core/database/migrate`（基于 golang-migrate）与脚手架
+  `scaffold migrate` 子命令。`scaffold migrate create <name>` 生成带 14 位时间戳
+  版本的 up/down SQL 文件对；`up` / `down [steps]`（默认回滚 1 步，0 = 全部回滚）、
+  `version` 对 MySQL 执行迁移，`--dsn` 标志可由 `FRAMEWORK_MIGRATE_DSN` 环境变量
+  提供；多语句迁移文件需要 DSN 包含 `multiStatements=true`。
+- **CRUD 仓储基类**：新增泛型 `core/database/store.Repository[T]`——开箱即用的
+  分页（`Query`：Page/PageSize/Sort/Filters，默认页大小 20、上限 100）、等值过滤、
+  排序白名单校验与 gorm 软删除约定。过滤/排序字段名必须满足列名规范，
+  否则 fail-closed 返回 `ErrInvalidField`（防 SQL 注入）；`Update` 按主键更新全部
+  字段（含零值），记录不存在返回 `ErrNotFound`，不使用 `Save` 的隐式插入。
+- **代码生成**：新增 `scaffold generate model|crud` 子命令（须在项目根目录执行）。
+  `model` 生成 GORM 模型；`crud` 一次生成 model + store（包装框架仓储基类）+
+  controller（增删改查路由），字段列表形如 `--fields name:string,age:int`，
+  支持 string/text/bool/int*/uint*/float*/time 共 17 种类型；生成的
+  controller 对 string 字段默认 `binding:"required"`。
+- **缓存封装**：新增 `core/cache`——基于 Redis 的类型化缓存，JSON 作为统一
+  序列化约定；`GetOrSet` 基于 singleflight 合并同 key 的并发回源（防缓存击穿），
+  缓存回写失败不影响业务结果（以 `ErrWriteFailed` 标记）；测试使用 miniredis。
+- **API 文档**：新增 `core/docs`——把 OpenAPI 规范（.yaml/.yml/.json）挂到
+  `GET <prefix>`（Swagger UI，默认 `/docs`）与 `GET <prefix>/openapi`；
+  `SpecPath` 文件缺失或扩展名不受支持时启动即失败（fail fast）。规范文件可
+  手写或由注解工具（如 swag CLI `swag init`）生成。脚手架生成的项目自带
+  `docs/openapi.yaml` 示例规范，main.go 含启用示例。
+- `errno.ErrNotFound`（HTTP 404，资源级 404，区别于路由级 `ErrPageNotFound`）。
+- 新增依赖：`github.com/golang-migrate/migrate/v4`（迁移）、`golang.org/x/sync`
+  （singleflight）；测试依赖 `github.com/glebarez/sqlite`（纯 Go SQLite 驱动）、
+  `github.com/alicebob/miniredis/v2`。
+- 测试：新增 migrate/store/cache/docs 包与代码生成测试；新增包后总覆盖率 83.9%
+  （CI 阈值 75% 保持不变）。
+- 脚手架 E2E（verify-scaffold.sh）新增 `migrate create` 与
+  `generate crud`（生成代码可编译、`go vet` 通过）断言。
+
 ## [v0.4.0] - 2026-11-19
 
 ### Added

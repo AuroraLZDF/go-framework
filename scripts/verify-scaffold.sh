@@ -71,10 +71,10 @@ echo "📁 生成项目..."
 (cd "$WORK_DIR" && "$FRAMEWORK_DIR/bin/scaffold" new "$APP_NAME" >/dev/null)
 cd "$WORK_DIR/$APP_NAME"
 
-for dir in cmd/app internal/biz internal/controller internal/store internal/model internal/service configs sql migrations assets logs .github/workflows; do
+for dir in cmd/app internal/biz internal/controller internal/store internal/model internal/service configs sql migrations docs assets logs .github/workflows; do
     [ -d "$dir" ] || fail "缺少目录: $dir"
 done
-for file in go.mod config.yaml config.example.yaml README.md .gitignore .air.toml Makefile Dockerfile docker-compose.yaml .env.example cmd/app/main.go; do
+for file in go.mod config.yaml config.example.yaml README.md .gitignore .air.toml Makefile Dockerfile docker-compose.yaml .env.example docs/openapi.yaml cmd/app/main.go; do
     [ -f "$file" ] || fail "缺少文件: $file"
 done
 pass "项目结构正确"
@@ -97,6 +97,17 @@ if [ "${FRAMEWORK_LOCAL:-0}" = "1" ]; then
     grep -q "replace ${FRAMEWORK_MODULE} =>" go.mod || echo "replace ${FRAMEWORK_MODULE} => ${FRAMEWORK_DIR}" >> go.mod
     pass "已追加本地 replace"
 fi
+
+echo "🧪 代码生成与迁移命令..."
+"$FRAMEWORK_DIR/bin/scaffold" migrate create create_users_table >/dev/null
+ls migrations/*_create_users_table.up.sql >/dev/null 2>&1 || fail "migrate create 未生成迁移文件"
+[ -f "migrations/$(ls migrations | grep create_users_table | head -1 | sed 's/\.up\.sql$/.down.sql/')" ] \
+    || fail "migrate create 未生成 down 迁移文件"
+"$FRAMEWORK_DIR/bin/scaffold" generate crud product --fields title:string,price:float,stock:int >/dev/null
+[ -f internal/model/product.go ] || fail "generate crud 缺少 model"
+[ -f internal/store/product_store.go ] || fail "generate crud 缺少 store"
+[ -f internal/controller/product_controller.go ] || fail "generate crud 缺少 controller"
+pass "migrate create / generate crud 正常"
 
 echo "📦 go mod tidy / build / vet..."
 go mod tidy >/dev/null
