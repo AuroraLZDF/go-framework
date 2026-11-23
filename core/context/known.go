@@ -18,3 +18,11 @@ const (
 	// XTokenType 用来定义 Token type
 	XTokenType = "Bearer"
 )
+
+// ctxKey 是 context.Context 专用键类型。
+// context.WithValue 的键不应使用内置 string（staticcheck SA1029），
+// 因此存取 context 的地方请使用 XRequestIDCtxKey.
+type ctxKey string
+
+// XRequestIDCtxKey context.Context 中请求 ID 的键，与 Gin 上下文中的 XRequestIDKey 对应.
+const XRequestIDCtxKey ctxKey = "X-Request-ID"

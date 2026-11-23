@@ -23,7 +23,7 @@ func TestRequestIDGeneratesAndPropagates(t *testing.T) {
 	r.Use(RequestID())
 	r.GET("/test", func(c *gin.Context) {
 		ginValue, _ = c.Get(ctxkey.XRequestIDKey)
-		requestValue = c.Request.Context().Value(ctxkey.XRequestIDKey)
+		requestValue = c.Request.Context().Value(ctxkey.XRequestIDCtxKey)
 		c.Status(http.StatusOK)
 	})
 

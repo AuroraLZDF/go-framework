@@ -127,7 +127,6 @@ func TestNewProjectGeneratesFiles(t *testing.T) {
 			t.Errorf("Makefile 缺少 %q", want)
 		}
 	}
-
 }
 
 func TestNewProjectWithPath(t *testing.T) {

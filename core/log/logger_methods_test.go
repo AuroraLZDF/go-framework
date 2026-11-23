@@ -196,14 +196,16 @@ func TestCWithContext(t *testing.T) {
 	}
 
 	// 携带 requestID 的 context 应把请求 ID 写入日志
-	reqCtx := context.WithValue(context.Background(), ctxkey.XRequestIDKey, "req-123")
+	reqCtx := context.WithValue(context.Background(), ctxkey.XRequestIDCtxKey, "req-123")
 	c1 := l.C(reqCtx)
 	c1.Info("with request id")
 
 	// 普通 context 与 nil context 应安全返回可用 logger
 	c2 := l.C(context.Background())
 	c2.Info("without request id")
-	c3 := l.C(nil)
+	// nil context 经变量传入（SA1012 拦截字面量 nil），验证运行时 nil 安全
+	var nilCtx context.Context
+	c3 := l.C(nilCtx)
 	c3.Info("with nil context")
 
 	l.Sync()
