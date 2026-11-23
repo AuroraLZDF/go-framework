@@ -20,7 +20,7 @@ import (
 func newRateLimitRouter(rate float64, burst int) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.SetTrustedProxies(nil)
+	_ = r.SetTrustedProxies(nil)
 	r.Use(func(c *gin.Context) {
 		if ip := c.Request.Header.Get("X-Test-IP"); ip != "" {
 			c.Request.RemoteAddr = ip
@@ -38,7 +38,7 @@ func TestRateLimitBlocksBurstExceeded(t *testing.T) {
 	// 桶容量 3：前 3 个请求通过，第 4 个被限流
 	codes := make([]int, 0, 4)
 	for i := 0; i < 4; i++ {
-		req := httptest.NewRequest(http.MethodGet, "/ok", nil)
+		req := httptest.NewRequest(http.MethodGet, "/ok", http.NoBody)
 		req.Header.Set("X-Test-IP", "10.0.0.1:12345")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
@@ -58,7 +58,7 @@ func TestRateLimitBlocksBurstExceeded(t *testing.T) {
 func TestRateLimitRefillsOverTime(t *testing.T) {
 	r := newRateLimitRouter(1000, 1)
 
-	req := httptest.NewRequest(http.MethodGet, "/ok", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ok", http.NoBody)
 	req.Header.Set("X-Test-IP", "10.0.0.2:12345")
 
 	w := httptest.NewRecorder()
@@ -79,9 +79,9 @@ func TestRateLimitRefillsOverTime(t *testing.T) {
 func TestRateLimitIsolatedByClientIP(t *testing.T) {
 	r := newRateLimitRouter(0.0001, 1)
 
-	req1 := httptest.NewRequest(http.MethodGet, "/ok", nil)
+	req1 := httptest.NewRequest(http.MethodGet, "/ok", http.NoBody)
 	req1.Header.Set("X-Test-IP", "10.0.1.1:12345")
-	req2 := httptest.NewRequest(http.MethodGet, "/ok", nil)
+	req2 := httptest.NewRequest(http.MethodGet, "/ok", http.NoBody)
 	req2.Header.Set("X-Test-IP", "10.0.1.2:12345")
 
 	w := httptest.NewRecorder()
@@ -110,7 +110,7 @@ func TestRateLimitInvalidParamsPassThrough(t *testing.T) {
 	for _, params := range [][2]float64{{0, 10}, {10, 0}, {-1, -1}} {
 		r := newRateLimitRouter(params[0], int(params[1]))
 		w := httptest.NewRecorder()
-		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/ok", nil))
+		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/ok", http.NoBody))
 		if w.Code != http.StatusOK {
 			t.Errorf("RateLimit(%v, %v) 应放行, got %d", params[0], params[1], w.Code)
 		}
@@ -120,7 +120,7 @@ func TestRateLimitInvalidParamsPassThrough(t *testing.T) {
 func TestRateLimit429Body(t *testing.T) {
 	r := newRateLimitRouter(0.0001, 1)
 
-	req := httptest.NewRequest(http.MethodGet, "/ok", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ok", http.NoBody)
 	req.Header.Set("X-Test-IP", "10.0.2.1:12345")
 	r.ServeHTTP(httptest.NewRecorder(), req) // 取走唯一令牌
 

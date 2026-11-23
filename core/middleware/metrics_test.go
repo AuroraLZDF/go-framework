@@ -28,7 +28,7 @@ func TestMetricsRecordsRequest(t *testing.T) {
 		c.Status(http.StatusOK)
 	})
 
-	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/ping", nil))
+	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/ping", http.NoBody))
 
 	body := fetchMetrics(t, r)
 	for _, want := range []string{
@@ -47,7 +47,7 @@ func TestMetricsUnknownRoute(t *testing.T) {
 	})
 
 	// 请求未注册的路由，FullPath 为空应记为 UNKNOWN
-	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/unregistered", nil))
+	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/unregistered", http.NoBody))
 
 	body := fetchMetrics(t, r)
 	if !strings.Contains(body, `route="UNKNOWN"`) {
@@ -60,7 +60,7 @@ func TestMetricsSkipsMetricsPath(t *testing.T) {
 		c.Status(http.StatusOK)
 	})
 
-	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody))
 
 	body := fetchMetrics(t, r)
 	if strings.Contains(body, `route="/metrics"`) {
@@ -85,7 +85,7 @@ func fetchMetrics(t *testing.T, r *gin.Engine) string {
 	t.Helper()
 
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody))
 	if w.Code != http.StatusOK {
 		t.Fatalf("GET /metrics = %d, want 200", w.Code)
 	}
