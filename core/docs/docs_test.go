@@ -46,7 +46,7 @@ func doRequest(t *testing.T, engine *gin.Engine, path string) *httptest.Response
 	t.Helper()
 
 	w := httptest.NewRecorder()
-	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, http.NoBody))
 
 	return w
 }
