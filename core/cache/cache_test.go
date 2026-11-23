@@ -100,7 +100,7 @@ func TestGetOrSet(t *testing.T) {
 
 	// 未命中：回源并写入缓存
 	var got cachedUser
-	if err := GetOrSet(c, ctx, "user:1", time.Minute, loader, &got); err != nil {
+	if err := GetOrSet(ctx, c, "user:1", time.Minute, loader, &got); err != nil {
 		t.Fatalf("GetOrSet: %v", err)
 	}
 	if got.Name != "bob" {
@@ -108,7 +108,7 @@ func TestGetOrSet(t *testing.T) {
 	}
 
 	// 命中：不再调用 loader
-	if err := GetOrSet(c, ctx, "user:1", time.Minute, func(context.Context) (cachedUser, error) {
+	if err := GetOrSet(ctx, c, "user:1", time.Minute, func(context.Context) (cachedUser, error) {
 		return cachedUser{ID: 1, Name: "should-not-load"}, nil
 	}, &got); err != nil {
 		t.Fatalf("GetOrSet hit: %v", err)
@@ -125,7 +125,7 @@ func TestGetOrSetLoaderError(t *testing.T) {
 
 	loaderErr := func(context.Context) (cachedUser, error) { return cachedUser{}, boom }
 	var got cachedUser
-	if err := GetOrSet(c, ctx, "user:err", time.Minute, loaderErr, &got); !errors.Is(err, boom) {
+	if err := GetOrSet(ctx, c, "user:err", time.Minute, loaderErr, &got); !errors.Is(err, boom) {
 		t.Errorf("GetOrSet loader error = %v, want boom", err)
 	}
 
@@ -140,7 +140,7 @@ func TestGetOrSetSingleflight(t *testing.T) {
 	ctx := context.Background()
 
 	var loads atomic.Int64
-	loader := func(context.Context) (cachedUser, error) {
+	loader := func(context.Context) (cachedUser, error) { //nolint:unparam // singleflight 测试 loader 恒成功，错误路径由 TestGetOrSetLoaderError 覆盖
 		loads.Add(1)
 		time.Sleep(100 * time.Millisecond) // 保证并发请求重叠
 
@@ -156,7 +156,7 @@ func TestGetOrSetSingleflight(t *testing.T) {
 			defer wg.Done()
 
 			var u cachedUser
-			errs[idx] = GetOrSet(c, ctx, "user:7", time.Minute, loader, &u)
+			errs[idx] = GetOrSet(ctx, c, "user:7", time.Minute, loader, &u)
 		}(i)
 	}
 	wg.Wait()
@@ -173,7 +173,7 @@ func TestGetOrSetSingleflight(t *testing.T) {
 
 func TestGetOrSetNilCache(t *testing.T) {
 	var got cachedUser
-	if err := GetOrSet(nil, context.Background(), "k", time.Minute,
+	if err := GetOrSet(context.Background(), nil, "k", time.Minute,
 		func(context.Context) (cachedUser, error) { return cachedUser{}, nil }, &got); err == nil {
 		t.Error("GetOrSet with nil cache should fail")
 	}
@@ -187,7 +187,7 @@ func TestGetOrSetWriteFailure(t *testing.T) {
 	srv.Close()
 
 	var got cachedUser
-	err := GetOrSet(c, ctx, "user:down", time.Minute,
+	err := GetOrSet(ctx, c, "user:down", time.Minute,
 		func(context.Context) (cachedUser, error) { return cachedUser{ID: 9, Name: "dave"}, nil }, &got)
 	if err != nil {
 		t.Errorf("GetOrSet should not fail when cache write fails, got %v", err)

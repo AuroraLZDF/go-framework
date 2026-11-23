@@ -151,7 +151,7 @@ func supportedTypes() string {
 
 // modulePath 读取项目根目录 go.mod 的 module 声明.
 func modulePath(dir string) (string, error) {
-	data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	data, err := os.ReadFile(filepath.Join(dir, "go.mod")) // #nosec G304 -- 固定读取用户在项目根目录下执行的 go.mod
 	if err != nil {
 		return "", fmt.Errorf("read go.mod: %w (run this command in the project root)", err)
 	}
@@ -297,7 +297,7 @@ func renderModel(name string, fields []Field) string {
 
 	fmt.Fprintf(&b, "// %s %s 模型.\ntype %s struct {\n\tgorm.Model\n\n", structName, name, structName)
 	for _, f := range fields {
-		tag := fmt.Sprintf("json:\"%s\"", f.Column)
+		tag := fmt.Sprintf("json:%q", f.Column)
 		if f.GormTag != "" {
 			tag = f.GormTag + " " + tag
 		}
@@ -527,7 +527,7 @@ func (h *` + structName + `Controller) Delete(c *gin.Context) {
 // writeRequestFields 写入请求体结构体字段（string 字段标记 binding:required）.
 func writeRequestFields(b *strings.Builder, fields []Field) {
 	for _, f := range fields {
-		tag := fmt.Sprintf("`json:\"%s\"", f.Column)
+		tag := fmt.Sprintf("`json:%q", f.Column)
 		if f.Type == "string" {
 			tag += " binding:\"required\""
 		}

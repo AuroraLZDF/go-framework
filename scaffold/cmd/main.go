@@ -126,15 +126,15 @@ func runMigrate(args []string) {
 		}
 	case "version":
 		opts := migrateFlags("migrate version", args[1:])
-		version, dirty, err := migrate.Version(opts)
+		curVersion, dirty, err := migrate.Version(opts)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading migration version: %v\n", err)
 			os.Exit(1)
 		}
-		if version == 0 {
+		if curVersion == 0 {
 			fmt.Println("No migrations applied yet")
 		} else {
-			fmt.Printf("Version: %d (dirty: %v)\n", version, dirty)
+			fmt.Printf("Version: %d (dirty: %v)\n", curVersion, dirty)
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown migrate subcommand: %s\n", sub)

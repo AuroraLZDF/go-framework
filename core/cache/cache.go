@@ -12,7 +12,7 @@
 //
 //	c := cache.New(db.GetRedis())
 //	var user User
-//	err := cache.GetOrSet(c, ctx, "user:42", 10*time.Minute,
+//	err := cache.GetOrSet(ctx, c, "user:42", 10*time.Minute,
 //	    func(ctx context.Context) (User, error) { return loadUser(ctx, 42) }, &user)
 package cache
 
@@ -97,7 +97,7 @@ func (c *Cache) Delete(ctx context.Context, key string) error {
 //
 // 注意：singleflight 只保护单实例进程，多实例部署时同一 key 可能跨实例回源，
 // 对一致性要求更高的场景请配合分布式锁或短 TTL 使用。
-func GetOrSet[T any](c *Cache, ctx context.Context, key string, ttl time.Duration, loader func(context.Context) (T, error), dst *T) error {
+func GetOrSet[T any](ctx context.Context, c *Cache, key string, ttl time.Duration, loader func(context.Context) (T, error), dst *T) error {
 	if c == nil {
 		return ErrClientRequired
 	}
